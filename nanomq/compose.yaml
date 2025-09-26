@@ -1,0 +1,15 @@
+services:
+  nanomq:
+    image: emqx/nanomq:latest-slim
+    ports:
+      - 1883:1883
+      - 9001:9001
+    volumes:
+      - sqlite:/var/lib/nanomq/sqlite
+      - ${PWD}/nanomq.conf:/usr/local/nanomq/nanomq.conf:ro
+      #- ${PWD}/nanomq.conf:/etc/nanomq.conf:ro
+      #- ${PWD}/nanomq_acl.conf:/etc/nanomq_acl.conf:ro
+      #- ${PWD}/nanomq_pwd.conf:/etc/nanomq_pwd.conf:ro
+
+volumes:
+  sqlite:
