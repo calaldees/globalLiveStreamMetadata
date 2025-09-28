@@ -1,4 +1,9 @@
 services:
+  python:
+    build:
+      dockerfile: python-alpine-uv.Dockerfile
+    command: ["uv", "app.py"]
+
   nanomq:
     image: emqx/nanomq:latest-slim
     ports:
@@ -6,7 +11,7 @@ services:
       - 9001:9001
     volumes:
       - sqlite:/var/lib/nanomq/sqlite
-      - ${PWD}/nanomq.conf:/usr/local/nanomq/nanomq.conf:ro
+      - ${PWD}/nanomq/nanomq.conf:/usr/local/nanomq/nanomq.conf:ro
       #- ${PWD}/nanomq.conf:/etc/nanomq.conf:ro
       #- ${PWD}/nanomq_acl.conf:/etc/nanomq_acl.conf:ro
       #- ${PWD}/nanomq_pwd.conf:/etc/nanomq_pwd.conf:ro

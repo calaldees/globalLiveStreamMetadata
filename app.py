@@ -1,9 +1,9 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # dependencies = [
-#   "aiohttp",
 #   "ujson",
 #   "msgpack",
+#   "aiohttp",
 #   "aiomqtt",
 # ]
 # ///
@@ -14,6 +14,7 @@ from typing import NamedTuple, Self
 import re
 import base64
 import asyncio
+import pathlib
 
 import ujson
 import msgpack
@@ -25,9 +26,9 @@ log = logging.getLogger(__name__)
 
 
 type JsonPrimitives = str | int | float | bool | None
-type Json = Mapping[str, Json | JsonPrimitives] | Sequence[Json | JsonPrimitives]
 type JsonObject = Mapping[str, Json | JsonPrimitives]
-
+type JsonSequence = Sequence[Json | JsonPrimitives]
+type Json = JsonObject | JsonSequence
 
 
 WEBSOCKET_PARAMS = {
@@ -43,10 +44,14 @@ class SteamMeta(NamedTuple):
     StreamTitle: str
     StreamUrl: str
     track_info_base64encoded: str
-    UTC: str #datetime.datetime
+    UTC: datetime.datetime
 
     @classmethod
     def from_str(cls, name:str, data_str:str) -> Self:
+        r"""
+        >>> SteamMeta.from_str("StreamTitle='Aaliyah - Back \u0026 Forth';StreamUrl='http://www.capitalxtra.com';track_info='k4Smc3RhdHVzoUihQNJo1pBfpHR5cGWhVKJpZKYzNjA3OTSEpnN0YXR1c6FDoUDSaNaROKR0eXBloVSiaWSmMzYwNTc4hKZzdGF0dXOhQ6FA0mjWkeKkdHlwZaFUomlkpjM2MDQ3NQ==';UTC='20250926T130915.688'"
+        'TODO'
+        """
         data = {
             match.group('key'): match.group('value')
             for match in cls.REGEX_METADATA_FIELD.finditer(data_str)
@@ -56,7 +61,7 @@ class SteamMeta(NamedTuple):
             StreamTitle=data.get('StreamTitle', ''),
             StreamUrl=data.get('StreamUrl', ''),
             track_info_base64encoded=data.get('track_info', ''),
-            UTC=data.get('UTC', ''), #datetime.datetime.strptime(r'%Y%m%dT%f'),
+            UTC=datetime.datetime.strptime(data.get('UTC', ''), r'%Y%m%dT%H%M%S')  # TODO: parse milliseconds
         )
 
     @property
@@ -66,9 +71,6 @@ class SteamMeta(NamedTuple):
     @property
     def track_info_decoded(self) -> Json:
         return msgpack.unpackb(self.tack_info_msgpack_bytes)
-
-# StreamTitle='Aaliyah - Back \u0026 Forth';StreamUrl='http://www.capitalxtra.com';track_info='k4Smc3RhdHVzoUihQNJo1pBfpHR5cGWhVKJpZKYzNjA3OTSEpnN0YXR1c6FDoUDSaNaROKR0eXBloVSiaWSmMzYwNTc4hKZzdGF0dXOhQ6FA0mjWkeKkdHlwZaFUomlkpjM2MDQ3NQ==';UTC='20250926T130915.688'
-
 
 
 async def listen_websocket(queue_meta: asyncio.Queue, url, reconnect_interval_seconds:int=5) -> None:
@@ -117,7 +119,7 @@ def get_args(argv=None):
 
     parser = argparse.ArgumentParser(
         prog=__name__,
-        description="""?""",
+        description=pathlib.Path('README.md').read_text(),
     )
 
     parser.add_argument('--websocket_url', action='store', help='', default='ws://10.7.116.20/metadata/')
