@@ -1,6 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # dependencies = [
+#   "humanize",
 #   "ujson",
 #   "msgpack",
 #   "aiohttp",
@@ -16,6 +17,7 @@ import base64
 import asyncio
 import pathlib
 
+import humanize
 import ujson
 import msgpack
 import aiohttp
@@ -74,7 +76,9 @@ class SteamMeta(NamedTuple):
 
 
 async def listen_websocket(queue_meta: asyncio.Queue, url, reconnect_interval_seconds:int=5) -> None:
-    while True:
+    start_time = datetime.datetime.now()
+    bytes_received = 0
+    while True:  # running?
         try:
             async with aiohttp.ClientSession() as session:
                 log.info(f'websocket connect {url=}')
@@ -82,6 +86,7 @@ async def listen_websocket(queue_meta: asyncio.Queue, url, reconnect_interval_se
                     async for msg in ws:
                         if msg.type == aiohttp.WSMsgType.ERROR:
                             break
+                        bytes_received += len(msg.data)
                         data = ujson.loads(msg.data)
                         meta = SteamMeta.from_str(data['s'], data['m'])
                         queue_meta.put_nowait(meta)
@@ -89,12 +94,16 @@ async def listen_websocket(queue_meta: asyncio.Queue, url, reconnect_interval_se
         except aiohttp.ClientError:
             log.warning(f"Connection lost to {url=}; Reconnecting in {reconnect_interval_seconds=}")
             await asyncio.sleep(reconnect_interval_seconds)
+        except asyncio.QueueShutDown:
+            log.warning(f'QueueShutDown {humanize.naturalsize(bytes_received)=} {humanize.naturalsize(bytes_received/(datetime.datetime.now()-start_time).seconds)}bytes/perSec')
+            break
+
 
 
 async def publish_mqtt(queue_meta: asyncio.Queue, mqtt_host:str, reconnect_interval_seconds:int=5) -> None:
     #async with aiomqtt.Client("test.mosquitto.org") as client:
     client = aiomqtt.Client(mqtt_host)
-    while True:
+    while True:  # running?
         try:
             async with client:
                 meta: SteamMeta
@@ -104,15 +113,31 @@ async def publish_mqtt(queue_meta: asyncio.Queue, mqtt_host:str, reconnect_inter
                         meta.tack_info_msgpack_bytes,
                         retain=True,
                     )
-        except asyncio.QueueShutDown:
-            log.warning('TODO')
         except aiomqtt.MqttError:
             log.warning(f"Connection lost to {mqtt_host=}; Reconnecting in {reconnect_interval_seconds=}")
             await asyncio.sleep(reconnect_interval_seconds)
+        except asyncio.QueueShutDown:
+            log.warning('TODO')
+            break
 
 
 
 # Main -------------------------------------------------------------------------
+
+async def main(options):
+    logging.basicConfig(level=options['log_level'])
+    queue_meta = asyncio.Queue()
+    try:
+        await asyncio.gather(
+            listen_websocket(queue_meta, options['websocket_url']),
+            publish_mqtt(queue_meta, options['mqtt_host']),
+        )
+    except asyncio.CancelledError:
+        log.info('Keyboard Interrupt')
+        queue_meta.shutdown()
+
+
+# Command Line -----------------------------------------------------------------
 
 def get_args(argv=None) -> dict:
     import argparse
@@ -123,31 +148,10 @@ def get_args(argv=None) -> dict:
     )
     parser.add_argument('--websocket_url', action='store', help='', default='ws://10.7.116.20/metadata/')
     parser.add_argument('--mqtt_host', action='store', help='', default='localhost')
-    parser.add_argument('--log_level', action='store', type=int, help='loglevel of output to stdout', default=logging.WARNING)
+    parser.add_argument('--log_level', action='store', type=int, help='loglevel of output to stdout', default=logging.DEBUG)
     args = parser.parse_args(argv)
     return vars(args)
 
 
-async def main(options):
-    queue_meta = asyncio.Queue()
-    try:
-        await asyncio.gather(
-            listen_websocket(queue_meta, options['websocket_url']),
-            publish_mqtt(queue_meta, options['mqtt_host']),
-        )
-    except asyncio.CancelledError:
-        log.info('Keyboard Interrupt?')
-
-
 if __name__ == "__main__":
-    options = get_args()
-    logging.basicConfig(level=options['log_level'])
-
-    asyncio.run(main(options))
-
-    #try:
-    #    loop.run_until_complete()
-    #except KeyboardInterrupt:
-    #    pass
-    #loop.run_until_complete(asyncio.sleep(2))  # Zero-sleep to allow underlying connections to close
-    #loop.close()
+    asyncio.run(main(get_args()))

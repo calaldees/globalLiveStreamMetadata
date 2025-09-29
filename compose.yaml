@@ -16,7 +16,7 @@ services:
       - ${PWD}/nanomq/nanomq.conf:/usr/local/nanomq/nanomq.conf:ro
       #- ${PWD}/nanomq.conf:/etc/nanomq.conf:ro
       #- ${PWD}/nanomq_acl.conf:/etc/nanomq_acl.conf:ro
-      #- ${PWD}/nanomq_pwd.conf:/etc/nanomq_pwd.conf:ro
+      #- ${PWD}/nanomq_pwd.conf:/etc/nanomq_pwd.conf:ro  # sadly, these files need to be unreadable to group+all to be valid - it just says file missing, it's not missing, it has the wrong permissions, the error message sucks
 
 volumes:
   sqlite:
