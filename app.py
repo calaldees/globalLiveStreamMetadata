@@ -1,14 +1,3 @@
-#!/usr/bin/env -S uv run --script
-# /// script
-# dependencies = [
-#   "humanize",
-#   "ujson",
-#   "msgpack",
-#   "aiohttp",
-#   "aiomqtt",
-# ]
-# ///
-
 from collections.abc import Mapping, Sequence
 import datetime
 from typing import NamedTuple, Self
@@ -18,7 +7,6 @@ import asyncio
 import pathlib
 
 import humanize
-import ujson
 import msgpack
 import aiohttp
 import aiomqtt
@@ -63,7 +51,7 @@ class SteamMeta(NamedTuple):
             StreamTitle=data.get('StreamTitle', ''),
             StreamUrl=data.get('StreamUrl', ''),
             track_info_base64encoded=data.get('track_info', ''),
-            UTC=datetime.datetime.strptime(data.get('UTC', ''), r'%Y%m%dT%H%M%S')  # TODO: parse milliseconds
+            UTC=datetime.datetime.strptime(data.get('UTC', ''), r'%Y%m%dT%H%M%S.%f')  # TODO: parse milliseconds correctly
         )
 
     @property
@@ -78,25 +66,58 @@ class SteamMeta(NamedTuple):
 async def listen_websocket(queue_meta: asyncio.Queue, url, reconnect_interval_seconds:int=5) -> None:
     start_time = datetime.datetime.now()
     bytes_received = 0
+    payloads_received = 0
+    previous_stream_meta_payload: Mapping[str, bytes] = dict()
+
+    def _parse_ws_message_and_dedupe(msg: aiohttp.WSMessage) -> SteamMeta | None:
+        nonlocal bytes_received, payloads_received
+        bytes_received += len(msg.data)
+        payloads_received += 1
+
+        data = msg.json()
+        meta = SteamMeta.from_str(data['s'], data['m'])  # TODO: exception here is invisible? Why?
+        meta_tack_info_msgpack_bytes = meta.tack_info_msgpack_bytes
+        if meta_tack_info_msgpack_bytes == previous_stream_meta_payload.get(meta.name):
+            return
+        previous_stream_meta_payload[meta.name] = meta_tack_info_msgpack_bytes
+        return meta
+
+    WS_TIMEOUT = aiohttp.ClientWSTimeout(ws_receive=5, ws_close=5)
     while True:  # running?
         try:
             async with aiohttp.ClientSession() as session:
-                log.info(f'websocket connect {url=}')
-                async with session.ws_connect(WEBSOCKET_PARAMS.pop('url'), **WEBSOCKET_PARAMS) as ws:
-                    async for msg in ws:
-                        if msg.type == aiohttp.WSMsgType.ERROR:
-                            break
-                        bytes_received += len(msg.data)
-                        data = ujson.loads(msg.data)
-                        meta = SteamMeta.from_str(data['s'], data['m'])
-                        queue_meta.put_nowait(meta)
+                async with session.ws_connect(
+                    WEBSOCKET_PARAMS.pop('url'),
+                    timeout=WS_TIMEOUT,
+                    **WEBSOCKET_PARAMS,
+                ) as ws:
+                    log.info(f'websocket connect {url=}')
+                    try:
+                        async for msg in ws:
+                            if msg.type != aiohttp.WSMsgType.TEXT:
+                            #if msg.type == aiohttp.WSMsgType.ERROR:
+                                break  #? #continue  # ?
+                            log.info('raising!')
+                            raise asyncio.QueueFull()
+                            log.info('raiseed')
+                            if meta := _parse_ws_message_and_dedupe(msg):
+                                queue_meta.put_nowait(meta)
+                    except asyncio.QueueShutDown:
+                        return
+                    except asyncio.QueueFull as ex:
+                        log.warning('QueueFull - disconnecting websocket')
                 await session.close()
-        except aiohttp.ClientError:
-            log.warning(f"Connection lost to {url=}; Reconnecting in {reconnect_interval_seconds=}")
-            await asyncio.sleep(reconnect_interval_seconds)
-        except asyncio.QueueShutDown:
-            log.warning(f'QueueShutDown {humanize.naturalsize(bytes_received)=} {humanize.naturalsize(bytes_received/(datetime.datetime.now()-start_time).seconds)}bytes/perSec')
+                log.info('1')
+        #except aiohttp.ClientError:
+        #except asyncio.QueueFull:  # Why is this never called?
+        #    log.warning(f"QueueFull; pausing websocket for {reconnect_interval_seconds=}")
+        #    await asyncio.sleep(reconnect_interval_seconds)
+        except asyncio.CancelledError:
+            seconds_elapsed = (datetime.datetime.now()-start_time).seconds
+            log.warning(f'QueueShutDown: received {payloads_received=} - Total {humanize.naturalsize(bytes_received)} - {humanize.naturalsize(bytes_received/seconds_elapsed)}/perSec')
             break
+        log.warning(f"Connection lost to {url=}; Reconnecting in {reconnect_interval_seconds=}")
+        await asyncio.sleep(reconnect_interval_seconds)
 
 
 
@@ -116,7 +137,7 @@ async def publish_mqtt(queue_meta: asyncio.Queue, mqtt_host:str, reconnect_inter
         except aiomqtt.MqttError:
             log.warning(f"Connection lost to {mqtt_host=}; Reconnecting in {reconnect_interval_seconds=}")
             await asyncio.sleep(reconnect_interval_seconds)
-        except asyncio.QueueShutDown:
+        except (asyncio.QueueShutDown, asyncio.CancelledError):
             log.warning('TODO')
             break
 
@@ -126,7 +147,7 @@ async def publish_mqtt(queue_meta: asyncio.Queue, mqtt_host:str, reconnect_inter
 
 async def main(options):
     logging.basicConfig(level=options['log_level'])
-    queue_meta = asyncio.Queue()
+    queue_meta = asyncio.Queue(maxsize=1000)
     try:
         await asyncio.gather(
             listen_websocket(queue_meta, options['websocket_url']),

@@ -1,10 +1,9 @@
 services:
   python:
     build:
-      dockerfile: python-alpine-uv.Dockerfile
-    volumes:
-      - ${PWD}/app.py:/app/app.py:ro
-    command: ["uv", "run", "app.py"]
+      dockerfile: ./Dockerfile
+    #volumes:
+    #  - ${PWD}/app.py:/app/app.py:ro
 
   nanomq:
     image: emqx/nanomq:latest-slim

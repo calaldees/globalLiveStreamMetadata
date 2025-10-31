@@ -1,0 +1,15 @@
+[project]
+name = "globallivestreammetadata"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+dependencies = [
+    "humanize",
+    "msgpack",
+    "aiohttp",
+    "aiomqtt",
+]
+[dependency-groups]
+dev = [
+    "pytest-aiohttp",
+]
