@@ -1,3 +1,4 @@
+**/__*cache__
 .python-version
 .venv
 uv.lock

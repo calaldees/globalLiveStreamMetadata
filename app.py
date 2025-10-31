@@ -39,8 +39,11 @@ class SteamMeta(NamedTuple):
     @classmethod
     def from_str(cls, name:str, data_str:str) -> Self:
         r"""
-        >>> SteamMeta.from_str("StreamTitle='Aaliyah - Back \u0026 Forth';StreamUrl='http://www.capitalxtra.com';track_info='k4Smc3RhdHVzoUihQNJo1pBfpHR5cGWhVKJpZKYzNjA3OTSEpnN0YXR1c6FDoUDSaNaROKR0eXBloVSiaWSmMzYwNTc4hKZzdGF0dXOhQ6FA0mjWkeKkdHlwZaFUomlkpjM2MDQ3NQ==';UTC='20250926T130915.688'"
-        'TODO'
+        >>> meta = SteamMeta.from_str(name='test', data_str="StreamTitle='Aaliyah - Back \u0026 Forth';StreamUrl='http://www.capitalxtra.com';track_info='k4Smc3RhdHVzoUihQNJo1pBfpHR5cGWhVKJpZKYzNjA3OTSEpnN0YXR1c6FDoUDSaNaROKR0eXBloVSiaWSmMzYwNTc4hKZzdGF0dXOhQ6FA0mjWkeKkdHlwZaFUomlkpjM2MDQ3NQ==';UTC='20250926T130915.688'")
+        >>> meta
+        SteamMeta(name='test', StreamTitle='Aaliyah - Back & Forth', StreamUrl='http://www.capitalxtra.com', track_info_base64encoded='k4Smc3RhdHVzoUihQNJo1pBfpHR5cGWhVKJpZKYzNjA3OTSEpnN0YXR1c6FDoUDSaNaROKR0eXBloVSiaWSmMzYwNTc4hKZzdGF0dXOhQ6FA0mjWkeKkdHlwZaFUomlkpjM2MDQ3NQ==', UTC=datetime.datetime(2025, 9, 26, 13, 9, 15, 688000))
+        >>> meta.track_info_decoded
+        [{'status': 'H', '@': 1758892127, 'type': 'T', 'id': '360794'}, {'status': 'C', '@': 1758892344, 'type': 'T', 'id': '360578'}, {'status': 'C', '@': 1758892514, 'type': 'T', 'id': '360475'}]
         """
         data = {
             match.group('key'): match.group('value')
@@ -87,7 +90,6 @@ async def listen_websocket(queue_meta: asyncio.Queue, url, reconnect_interval_se
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.ws_connect(
-                    WEBSOCKET_PARAMS.pop('url'),
                     timeout=WS_TIMEOUT,
                     **WEBSOCKET_PARAMS,
                 ) as ws:
@@ -96,22 +98,18 @@ async def listen_websocket(queue_meta: asyncio.Queue, url, reconnect_interval_se
                         async for msg in ws:
                             if msg.type != aiohttp.WSMsgType.TEXT:
                             #if msg.type == aiohttp.WSMsgType.ERROR:
-                                break  #? #continue  # ?
-                            log.info('raising!')
-                            raise asyncio.QueueFull()
-                            log.info('raiseed')
+                                continue
                             if meta := _parse_ws_message_and_dedupe(msg):
                                 queue_meta.put_nowait(meta)
                     except asyncio.QueueShutDown:
+                        await session.close()
                         return
                     except asyncio.QueueFull as ex:
                         log.warning('QueueFull - disconnecting websocket')
+                        await session.close()
+                    except Exception as ex:
+                        log.exception('unknown exception in websocket message', exc_info=True)
                 await session.close()
-                log.info('1')
-        #except aiohttp.ClientError:
-        #except asyncio.QueueFull:  # Why is this never called?
-        #    log.warning(f"QueueFull; pausing websocket for {reconnect_interval_seconds=}")
-        #    await asyncio.sleep(reconnect_interval_seconds)
         except asyncio.CancelledError:
             seconds_elapsed = (datetime.datetime.now()-start_time).seconds
             log.warning(f'QueueShutDown: received {payloads_received=} - Total {humanize.naturalsize(bytes_received)} - {humanize.naturalsize(bytes_received/seconds_elapsed)}/perSec')
@@ -134,6 +132,7 @@ async def publish_mqtt(queue_meta: asyncio.Queue, mqtt_host:str, reconnect_inter
                         meta.tack_info_msgpack_bytes,
                         retain=True,
                     )
+                    log.info(f'/stream/{meta.name}')
         except aiomqtt.MqttError:
             log.warning(f"Connection lost to {mqtt_host=}; Reconnecting in {reconnect_interval_seconds=}")
             await asyncio.sleep(reconnect_interval_seconds)
@@ -142,16 +141,42 @@ async def publish_mqtt(queue_meta: asyncio.Queue, mqtt_host:str, reconnect_inter
             break
 
 
+# Web --------------------------------------------------------------------------
+
+from aiohttp import web as aiohttp_web
+async def hello(request) -> aiohttp_web.Response:
+    return aiohttp_web.Response(text="Hello, world")
+def createApplication() -> aiohttp_web.Application:
+    app = aiohttp_web.Application()
+    app.add_routes((
+        aiohttp_web.get('/', hello),
+    ))
+    return app
+async def tcp_site(app: aiohttp.web.Application) -> None:
+    # https://docs.aiohttp.org/en/stable/web_reference.html#running-applications
+    runner = aiohttp_web.AppRunner(app)
+    await runner.setup()
+    site = aiohttp_web.TCPSite(runner, '0.0.0.0', 8000)
+    await site.start()
+    while True:
+        try:
+            await asyncio.sleep(3600)
+            # wait for finish signal
+        except Exception:
+            break
+    await runner.cleanup()
+#aiohttp.web.run_app(app)
 
 # Main -------------------------------------------------------------------------
 
 async def main(options):
     logging.basicConfig(level=options['log_level'])
-    queue_meta = asyncio.Queue(maxsize=1000)
+    queue_meta = asyncio.Queue(maxsize=400)
     try:
         await asyncio.gather(
             listen_websocket(queue_meta, options['websocket_url']),
             publish_mqtt(queue_meta, options['mqtt_host']),
+            tcp_site(createApplication()),
         )
     except asyncio.CancelledError:
         log.info('Keyboard Interrupt')
