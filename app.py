@@ -86,6 +86,7 @@ async def listen_websocket(queue_meta: asyncio.Queue, url, reconnect_interval_se
         return meta
 
     WS_TIMEOUT = aiohttp.ClientWSTimeout(ws_receive=5, ws_close=5)
+    await asyncio.sleep(3)  # wait to allow MQTT listeners to sync/catchup before fire-hosing more
     while True:  # running?
         try:
             async with aiohttp.ClientSession() as session:
@@ -119,7 +120,7 @@ async def listen_websocket(queue_meta: asyncio.Queue, url, reconnect_interval_se
 
 
 
-async def publish_mqtt(queue_meta: asyncio.Queue, mqtt_host:str, reconnect_interval_seconds:int=5) -> None:
+async def publish_stream_meta(queue_meta: asyncio.Queue, mqtt_host:str, reconnect_interval_seconds:int=5) -> None:
     #async with aiomqtt.Client("test.mosquitto.org") as client:
     client = aiomqtt.Client(mqtt_host)
     while True:  # running?
@@ -132,7 +133,7 @@ async def publish_mqtt(queue_meta: asyncio.Queue, mqtt_host:str, reconnect_inter
                         meta.tack_info_msgpack_bytes,
                         retain=True,
                     )
-                    log.info(f'/stream/{meta.name}')
+                    log.info(f'publish: /stream/{meta.name}')
         except aiomqtt.MqttError:
             log.warning(f"Connection lost to {mqtt_host=}; Reconnecting in {reconnect_interval_seconds=}")
             await asyncio.sleep(reconnect_interval_seconds)
@@ -141,11 +142,55 @@ async def publish_mqtt(queue_meta: asyncio.Queue, mqtt_host:str, reconnect_inter
             break
 
 
+
+async def publish_stream3_meta(mqtt_host:str, reconnect_interval_seconds:int=5) -> None:
+    client = aiomqtt.Client(mqtt_host)
+    stream3: Mapping[str, bytes] = {}
+    while True:  # running?
+        try:
+            async with client:
+                await client.subscribe("/stream3/#")
+                await client.subscribe("/stream/#")
+                async for message in client.messages:
+                    log.info(f'recv: {message.topic.value}')
+                    if message.topic.matches("/stream3/#"):
+                        stream3[message.topic.value.removeprefix('/stream3/')] = message.payload
+                    if message.topic.matches("/stream/#"):
+                        if not message.payload:
+                            continue
+                        meta_name = message.topic.value.removeprefix('/stream/')
+                        if stream3_payload := stream3.get(meta_name):
+                            data = msgpack.unpackb(stream3_payload)
+                            if len(data) >= 3:
+                                data.pop(0)
+                        else:
+                            data = []
+                        decoded_metadata = msgpack.unpackb(message.payload)
+                        if decoded_metadata not in data:
+                            data.append(decoded_metadata)
+                        await client.publish(
+                            f'/stream3/{meta_name}',
+                            msgpack.packb(data),
+                            retain=True,
+                        )
+        except aiomqtt.MqttError:
+            log.warning(f"Connection lost to {mqtt_host=}; Reconnecting in {reconnect_interval_seconds=}")
+            await asyncio.sleep(reconnect_interval_seconds)
+        except (asyncio.QueueShutDown, asyncio.CancelledError):
+            log.warning('TODO')
+            break
+
+
+
+
+
 # Web --------------------------------------------------------------------------
 
 from aiohttp import web as aiohttp_web
 async def hello(request) -> aiohttp_web.Response:
-    return aiohttp_web.Response(text="Hello, world")
+    #return aiohttp_web.Response(text="Hello, world")
+    data = {'some': 'data'}
+    return aiohttp_web.json_response(data)
 def createApplication() -> aiohttp_web.Application:
     app = aiohttp_web.Application()
     app.add_routes((
@@ -175,7 +220,8 @@ async def main(options):
     try:
         await asyncio.gather(
             listen_websocket(queue_meta, options['websocket_url']),
-            publish_mqtt(queue_meta, options['mqtt_host']),
+            publish_stream_meta(queue_meta, options['mqtt_host']),
+            publish_stream3_meta(options['mqtt_host']),
             tcp_site(createApplication()),
         )
     except asyncio.CancelledError:
