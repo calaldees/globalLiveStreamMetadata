@@ -20,7 +20,7 @@ async def publish_stream_meta(
                 while meta := await queue_meta.get():
                     await client.publish(
                         f"/stream/{meta.name}",
-                        meta.tack_info_msgpack_bytes,
+                        meta.playout_payload_msgpack_bytes,
                         retain=True,
                     )
                     log.info(f"publish: /stream/{meta.name}")

@@ -36,16 +36,14 @@ async def listen_websocket(
         meta = SteamMeta.from_str(
             data["s"], data["m"]
         )  # TODO: exception here is invisible? Why?
-        meta_tack_info_msgpack_bytes = meta.tack_info_msgpack_bytes
-        if meta_tack_info_msgpack_bytes == previous_stream_meta_payload.get(meta.name):
+        meta_playout_payload_msgpack_bytes = meta.playout_payload_msgpack_bytes
+        if meta_playout_payload_msgpack_bytes == previous_stream_meta_payload.get(meta.name):
             return
-        previous_stream_meta_payload[meta.name] = meta_tack_info_msgpack_bytes
+        previous_stream_meta_payload[meta.name] = meta_playout_payload_msgpack_bytes
         return meta
 
     WS_TIMEOUT = aiohttp.ClientWSTimeout(ws_receive=5, ws_close=5)
-    await asyncio.sleep(
-        3
-    )  # wait to allow MQTT listeners to sync/catchup before fire-hosing more
+    #await asyncio.sleep(3)  # wait to allow MQTT listeners to sync/catchup before fire-hosing more
     while True:  # running?
         try:
             async with aiohttp.ClientSession() as session:
