@@ -6,5 +6,5 @@ WORKDIR /app/
 COPY pyproject.toml .
 RUN uv sync --no-dev
 
-COPY app.py .
+COPY app.py stream_metadata/ ./
 ENTRYPOINT [ "uv", "run", "app.py" ]
