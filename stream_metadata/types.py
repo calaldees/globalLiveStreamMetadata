@@ -4,7 +4,6 @@ import enum
 import re
 from collections.abc import Mapping, Sequence
 from typing import NamedTuple, Self
-from functools import cached_property
 from statistics import mean
 
 import msgpack
@@ -86,12 +85,12 @@ class PlayoutPayload(NamedTuple):
         """
         return cls(items=tuple(map(PlayoutItem.from_json, data)))
 
-    @cached_property
+    @property
     def ids(self) -> Sequence[str]:
-        return tuple(i.id for i in self.items)
+        return tuple(re.sub(r'\D','',i.id) for i in self.items)
 
     def mean_at(self) -> float:
-        return mean(i.at.timestamp() for i in self.items)
+        return mean(i.at.timestamp() for i in self.items) if self.items else 0
 
     @property
     def json(self) -> JsonSequence:

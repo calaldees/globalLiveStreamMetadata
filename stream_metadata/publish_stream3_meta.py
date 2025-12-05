@@ -1,7 +1,8 @@
 import asyncio
 import logging
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping, Sequence, Set
 from typing import Self
+import itertools
 
 import aiomqtt
 import msgpack
@@ -18,6 +19,9 @@ class StreamPlayoutPayloads:
         self.payloads = payloads
         self.retain_limit = retain_limit
 
+    def __str__(self) -> str:
+        return f'{self.__class__.__name__}: [{" ".join(",".join(p.ids) for p in self.payloads)}]'
+
     @property
     def json(self) -> JsonSequence:
         return tuple(payload.json for payload in self.payloads)
@@ -26,13 +30,14 @@ class StreamPlayoutPayloads:
     def from_json(cls, data: JsonSequence) -> Self:
         return cls(tuple(map(PlayoutPayload.from_json, data)))
 
-    def exists_in(self, p: PlayoutPayload) -> bool:
-        return any(payload.ids == p.ids for payload in self.payloads)
-
-    def changed(self, b: Self) -> bool:
-        return all(self.exists_in(payload) for payload in b.payloads)
+    @property
+    def ids(self) -> Set[str]:
+        return frozenset(itertools.chain.from_iterable(payload.ids for payload in self.payloads))
 
     def merge_payload(self, payload: PlayoutPayload) -> Self:
+        """
+        TODO: Really need to doctest this!!!
+        """
         payloads = tuple(filter(lambda p: p.ids != payload.ids or p.mean_at() > payload.mean_at(), self.payloads))
         payloads += (payload,)
         payloads = sorted(payloads, key=PlayoutPayload.mean_at)
@@ -81,9 +86,9 @@ async def publish_stream3_meta(mqtt_host: str, reconnect_interval_seconds: int =
                         incoming_stream3_payload = StreamPlayoutPayloads.from_json(msgpack.unpackb(message.payload))
                         existing_stream3_payload = (last_stream3.get(meta_name) or StreamPlayoutPayloads())
                         merged_stream3_payloads = existing_stream3_payload.merge_payloads(incoming_stream3_payload)
-
-                        if merged_stream3_payloads.changed(existing_stream3_payload):
+                        if existing_stream3_payload.ids != merged_stream3_payloads.ids:
                             last_stream3[meta_name] = merged_stream3_payloads
+                            #log.info(f'publish: /stream3/{meta_name} {merged_stream3_payloads}')
                             await client.publish(
                                 f"/stream3/{meta_name}",
                                 msgpack.packb(merged_stream3_payloads.json),
