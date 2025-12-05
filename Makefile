@@ -5,3 +5,5 @@ run:
 	uv run app.py
 test:
 	uv run --dev pytest --doctest-modules
+debug:
+	uv run -m pdb app.py

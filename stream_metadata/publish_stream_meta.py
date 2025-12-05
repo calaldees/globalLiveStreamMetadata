@@ -3,13 +3,15 @@ import logging
 
 import aiomqtt
 
-from .types import SteamMeta
+from .types import SteamMeta, Url
 
 log = logging.getLogger(__name__)
 
 
 async def publish_stream_meta(
-    queue_meta: asyncio.Queue, mqtt_host: str, reconnect_interval_seconds: int = 5
+    queue_meta: asyncio.Queue[SteamMeta],
+    mqtt_host: str,  # Url?
+    reconnect_interval_seconds: int = 5
 ) -> None:
     # async with aiomqtt.Client("test.mosquitto.org") as client:
     client = aiomqtt.Client(mqtt_host)

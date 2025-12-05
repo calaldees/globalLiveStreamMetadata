@@ -5,6 +5,7 @@ import re
 from collections.abc import Mapping, Sequence
 from typing import NamedTuple, Self
 from statistics import mean
+import urllib.parse
 
 import msgpack
 
@@ -12,6 +13,20 @@ type JsonPrimitives = str | int | float | bool | None
 type JsonObject = Mapping[str, Json | JsonPrimitives]
 type JsonSequence = Sequence[Json | JsonPrimitives]
 type Json = JsonObject | JsonSequence
+
+
+class Url(str):
+    def __init__(self, url: str):
+        self._parts = urllib.parse.urlparse(url)
+        if bool(self) and not self._parts.netloc:
+            raise ValueError(
+                f'{self.__class__.__name__}: unable to parse {self._parts=}'
+            )
+    def __str__(self) -> str:
+        return urllib.parse.urlunparse(self._parts)
+    def __bool__(self) -> bool:
+        return any(self._parts)
+
 
 
 class PlayoutItemStatus(enum.StrEnum):

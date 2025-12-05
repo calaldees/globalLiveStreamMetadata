@@ -1,22 +1,30 @@
 import asyncio
+import pathlib
 
 import aiohttp
 from aiohttp import web as aiohttp_web
 
 
-async def hello(request) -> aiohttp_web.Response:
+README = pathlib.Path('README.md').read_text()
+
+
+async def hello(request: aiohttp_web.Request) -> aiohttp_web.Response:
     # return aiohttp_web.Response(text="Hello, world")
     data = {"some": "data"}
     return aiohttp_web.json_response(data)
 
 
+async def readme(request: aiohttp_web.Request) -> aiohttp_web.Response:
+    return aiohttp_web.Response(text=README)
+
+
 def createApplication() -> aiohttp_web.Application:
     app = aiohttp_web.Application()
-    app.add_routes((aiohttp_web.get("/", hello),))
+    app.add_routes((aiohttp_web.get("/", readme),))
     return app
 
 
-async def tcp_site(app: aiohttp.web.Application) -> None:
+async def serve_tcp_site(app: aiohttp.web.Application) -> None:
     # https://docs.aiohttp.org/en/stable/web_reference.html#running-applications
     runner = aiohttp_web.AppRunner(app)
     await runner.setup()

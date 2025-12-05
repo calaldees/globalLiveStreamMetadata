@@ -7,7 +7,7 @@ import itertools
 import aiomqtt
 import msgpack
 
-from .types import JsonSequence, PlayoutPayload
+from .types import JsonSequence, PlayoutPayload, Url
 
 log = logging.getLogger(__name__)
 
@@ -53,7 +53,10 @@ class StreamPlayoutPayloads:
 
 
 
-async def publish_stream3_meta(mqtt_host: str, reconnect_interval_seconds: int = 5) -> None:
+async def publish_stream3_meta(
+    mqtt_host: str,  # Url?
+    reconnect_interval_seconds: int = 5
+) -> None:
     client = aiomqtt.Client(mqtt_host)
     last_stream3: Mapping[str, StreamPlayoutPayloads] = {}
     last_stream: Mapping[str, PlayoutPayload] = {}
