@@ -3,13 +3,13 @@ import logging
 
 import aiomqtt
 
-from .types import SteamMeta, Url
+from .types import StreamMeta, Url
 
 log = logging.getLogger(__name__)
 
 
 async def publish_stream_meta(
-    queue_meta: asyncio.Queue[SteamMeta],
+    queue_meta: asyncio.Queue[StreamMeta],
     mqtt_host: str,  # Url?
     reconnect_interval_seconds: int = 5
 ) -> None:
@@ -18,7 +18,7 @@ async def publish_stream_meta(
     while True:  # running?
         try:
             async with client:
-                meta: SteamMeta
+                meta: StreamMeta
                 while meta := await queue_meta.get():
                     await client.publish(
                         f"/stream/{meta.name}",

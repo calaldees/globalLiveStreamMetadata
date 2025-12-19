@@ -1,14 +1,13 @@
 import asyncio
 import logging
 import pathlib
-import datetime
 
 from stream_metadata.http_api import createApplication, serve_tcp_site
 from stream_metadata.listen_websocket import listen_websocket
 from stream_metadata.publish_stream3_meta import publish_stream3_meta
 from stream_metadata.publish_stream_meta import publish_stream_meta
 
-from stream_metadata.types import Url, SteamMeta
+from stream_metadata.types import Url, StreamMeta
 
 log = logging.getLogger(__name__)
 
@@ -17,14 +16,14 @@ log = logging.getLogger(__name__)
 
 async def main(options):
     logging.basicConfig(level=options['log_level'])
-    queue_meta: asyncio.Queue[SteamMeta] = asyncio.Queue(maxsize=400)
-    queue_timestamp: asyncio.Queue[datetime.datetime] = asyncio.Queue(maxsize=400)
+    queue_meta: asyncio.Queue[StreamMeta] = asyncio.Queue(maxsize=400)
+    queue_timestamp: asyncio.Queue[StreamMeta] = asyncio.Queue(maxsize=400)
     try:
         await asyncio.gather(
             listen_websocket(queue_meta, queue_timestamp, options['websocket_url']),
             publish_stream_meta(queue_meta, options['mqtt_host']),
             publish_stream3_meta(options['mqtt_host']),
-            serve_tcp_site(createApplication()),  # TODO: pass arg queue_timestamp
+            serve_tcp_site(createApplication(queue_timestamp)),
         )
     except asyncio.CancelledError:
         log.info('Keyboard Interrupt')

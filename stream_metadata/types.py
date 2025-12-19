@@ -112,7 +112,7 @@ class PlayoutPayload(NamedTuple):
         return tuple(i.json for i in self.items)
 
 
-class SteamMeta(NamedTuple):
+class StreamMeta(NamedTuple):
     """
     Handling the full stream metadata string
     """
@@ -128,9 +128,9 @@ class SteamMeta(NamedTuple):
     @classmethod
     def from_str(cls, name: str, data_str: str) -> Self:
         r"""
-        >>> meta = SteamMeta.from_str(name='test', data_str="StreamTitle='Aaliyah - Back \u0026 Forth';StreamUrl='http://www.capitalxtra.com';track_info='k4Smc3RhdHVzoUihQNJo1pBfpHR5cGWhVKJpZKYzNjA3OTSEpnN0YXR1c6FDoUDSaNaROKR0eXBloVSiaWSmMzYwNTc4hKZzdGF0dXOhQ6FA0mjWkeKkdHlwZaFUomlkpjM2MDQ3NQ==';UTC='20250926T130915.688'")
+        >>> meta = StreamMeta.from_str(name='test', data_str="StreamTitle='Aaliyah - Back \u0026 Forth';StreamUrl='http://www.capitalxtra.com';track_info='k4Smc3RhdHVzoUihQNJo1pBfpHR5cGWhVKJpZKYzNjA3OTSEpnN0YXR1c6FDoUDSaNaROKR0eXBloVSiaWSmMzYwNTc4hKZzdGF0dXOhQ6FA0mjWkeKkdHlwZaFUomlkpjM2MDQ3NQ==';UTC='20250926T130915.688'")
         >>> meta
-        SteamMeta(name='test', StreamTitle='Aaliyah - Back & Forth', StreamUrl='http://www.capitalxtra.com', track_info_base64encoded='k4Smc3RhdHVzoUihQNJo1pBfpHR5cGWhVKJpZKYzNjA3OTSEpnN0YXR1c6FDoUDSaNaROKR0eXBloVSiaWSmMzYwNTc4hKZzdGF0dXOhQ6FA0mjWkeKkdHlwZaFUomlkpjM2MDQ3NQ==', UTC=datetime.datetime(2025, 9, 26, 13, 9, 15, 688000))
+        StreamMeta(name='test', StreamTitle='Aaliyah - Back & Forth', StreamUrl='http://www.capitalxtra.com', track_info_base64encoded='k4Smc3RhdHVzoUihQNJo1pBfpHR5cGWhVKJpZKYzNjA3OTSEpnN0YXR1c6FDoUDSaNaROKR0eXBloVSiaWSmMzYwNTc4hKZzdGF0dXOhQ6FA0mjWkeKkdHlwZaFUomlkpjM2MDQ3NQ==', UTC=datetime.datetime(2025, 9, 26, 13, 9, 15, 688000))
         >>> meta.playout_payload_json
         [{'status': 'H', '@': 1758892127, 'type': 'T', 'id': '360794'}, {'status': 'C', '@': 1758892344, 'type': 'T', 'id': '360578'}, {'status': 'C', '@': 1758892514, 'type': 'T', 'id': '360475'}]
         """

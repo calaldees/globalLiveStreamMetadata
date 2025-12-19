@@ -2,8 +2,10 @@ services:
   python:
     build:
       dockerfile: ./Dockerfile
+    ports:
+      - 8000:8000
     #volumes:
-    #  - ${PWD}/app.py:/app/app.py:ro
+      #  - ${PWD}/app.py:/app/app.py:ro
 
   nanomq:
     image: emqx/nanomq:latest-slim

@@ -6,7 +6,7 @@ from collections.abc import Mapping
 import aiohttp
 import humanize
 
-from .types import SteamMeta, Url
+from .types import StreamMeta, Url
 
 log = logging.getLogger(__name__)
 
@@ -19,8 +19,8 @@ log = logging.getLogger(__name__)
 
 
 async def listen_websocket(
-    queue_meta: asyncio.Queue[SteamMeta],
-    queue_timestamp: asyncio.Queue[datetime.datetime],
+    queue_meta: asyncio.Queue[StreamMeta],
+    queue_timestamp: asyncio.Queue[StreamMeta],
     websocket_url: Url,
     reconnect_interval_seconds: int = 5
 ) -> None:
@@ -29,16 +29,16 @@ async def listen_websocket(
     payloads_received = 0
     previous_stream_meta_payload: Mapping[str, bytes] = dict()
 
-    def _parse_ws_message(msg: aiohttp.WSMessage) -> SteamMeta:
+    def _parse_ws_message(msg: aiohttp.WSMessage) -> StreamMeta:
         nonlocal bytes_received, payloads_received
         bytes_received += len(msg.data)
         payloads_received += 1
         data = msg.json()
-        return SteamMeta.from_str(
+        return StreamMeta.from_str(
             data["s"], data["m"]
         )  # TODO: exception here is invisible? Why?
 
-    def _dedupe_meta(meta: SteamMeta) -> SteamMeta | None:
+    def _dedupe_meta(meta: StreamMeta) -> StreamMeta | None:
         meta_playout_payload_msgpack_bytes = meta.playout_payload_msgpack_bytes
         if meta_playout_payload_msgpack_bytes == previous_stream_meta_payload.get(meta.name):
             return
@@ -63,7 +63,7 @@ async def listen_websocket(
                                 # if msg.type == aiohttp.WSMsgType.ERROR:
                                 continue
                             meta = _parse_ws_message(msg)
-                            queue_timestamp.put_nowait(meta.UTC)
+                            queue_timestamp.put_nowait(meta)
                             if _dedupe_meta(meta):
                                 queue_meta.put_nowait(meta)
                     except asyncio.QueueShutDown:
