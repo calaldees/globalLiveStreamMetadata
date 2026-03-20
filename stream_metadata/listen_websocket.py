@@ -70,7 +70,8 @@ async def listen_websocket(
                         await session.close()
                         return
                     except asyncio.QueueFull as ex:
-                        log.warning("QueueFull - disconnecting websocket")
+                        #log.warning("QueueFull - disconnecting websocket")
+                        log.exception("QueueFull - disconnecting websocket")
                         await session.close()
                     except Exception as ex:
                         log.exception(

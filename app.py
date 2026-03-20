@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 async def main(options):
     logging.basicConfig(level=options['log_level'])
     queue_meta: asyncio.Queue[StreamMeta] = asyncio.Queue(maxsize=400)
-    queue_timestamp: asyncio.Queue[StreamMeta] = asyncio.Queue(maxsize=400)
+    queue_timestamp: asyncio.Queue[StreamMeta] = asyncio.Queue(maxsize=1200)
     try:
         await asyncio.gather(
             listen_websocket(queue_meta, queue_timestamp, options['websocket_url']),
