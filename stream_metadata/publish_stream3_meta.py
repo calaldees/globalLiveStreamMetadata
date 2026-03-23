@@ -70,6 +70,7 @@ async def publish_stream3_meta(
                     log.info(f"recv: {message.topic.value}")
 
                     if message.topic.matches("/stream/#"):
+                        # Combine and push `/stream3/` version with previous payloads
                         if not message.payload:
                             continue
                         meta_name = message.topic.value.removeprefix("/stream/")
@@ -88,6 +89,9 @@ async def publish_stream3_meta(
                         log.info(f"publish: /stream/ -> /stream3/{meta_name}")
 
                     elif message.topic.matches("/stream3/#"):
+                        # Fallback for when we connect to an existing/previous session
+                        # Most of the time this segment does nothing
+                        # At startup we merge existing stream3 (could be outdated) with our current payload
                         meta_name = message.topic.value.removeprefix("/stream3/")
                         incoming_stream3_payloads = StreamPlayoutPayloads.from_json(msgpack.unpackb(message.payload))
 
