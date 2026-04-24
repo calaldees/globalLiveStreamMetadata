@@ -10,24 +10,33 @@ import mqtt_client from 'https://cdn.jsdelivr.net/npm/u8-mqtt/esm/web/index.js'
 import * as msgpack_lite from 'https://esm.run/msgpack-lite'
 
 
+const hasIterationProtocol = variable => variable !== null && Symbol.iterator in Object(variable)
+function h(type, params, children) {
+    const el = document.createElement(type)
+    for (let [k,v] of Object.entries(params)) {el.setAttribute(k,v)}
+    if      (["string","number"].indexOf(typeof(children))>=0) {el.appendChild(document.createTextNode(children))}
+    else if (hasIterationProtocol(children)) {for (let c of children) {el.append(c)}}
+    else if (children                      ) {el.appendChild(children)}
+    return el
+}
+
+
 const my_mqtt = mqtt_client()
 	.with_websock('ws://localhost:9001') // or .with_tcp('tcp://test.mosquitto.org:1883')
 	.with_autoreconnect()
 await my_mqtt.connect()
 
+function render_tracks_payload(tracks) {
+	return h('ul',{},tracks.map(track=>h('li',{},[
+		h('img',{src:track.artwork.url, alt:track.title},[]),
+	])))
+}
 
-//(pkt, params, ctx) => {
-/**
-		//console.log('topic packet', params, pkt)
-		const data = msgpackmsgpack.decode(pkt.payload)
-		//
-		console.log(data)
-	}
-**/
 async function print_payload(pkt, params, ctx) {
 	const data = msgpack_lite.decode(pkt.payload)
 	console.log(data)
+	document.body.appendChild(render_tracks_payload(data))
 }
-my_mqtt.subscribe_topic('/stream3/CapitalUK', print_payload)
+my_mqtt.subscribe_topic('/track/CapitalUK', print_payload)
 </script>
 </html>
