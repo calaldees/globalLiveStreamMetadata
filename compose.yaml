@@ -1,7 +1,10 @@
 services:
   python:
     build:
-      dockerfile: ./Dockerfile
+      #dockerfile: ./Dockerfile
+      context: .
+    environment:
+      LOOKUP_ENDPOINT: http://lookup:8000/lookup/
     ports:
       - 8000:8000
     #volumes:
@@ -19,5 +22,16 @@ services:
       #- ${PWD}/nanomq_acl.conf:/etc/nanomq_acl.conf:ro
       #- ${PWD}/nanomq_pwd.conf:/etc/nanomq_pwd.conf:ro  # sadly, these files need to be unreadable to group+all to be valid - it just says file missing, it's not missing, it has the wrong permissions, the error message sucks
 
+  lookup:
+    build:
+      context: /Users/allan.callaghan/code/personal/lookupCacheAPI/
+    environment:
+      - CACHE_TIMEOUT_MINUTES=9999
+    ports:
+      - 8002:8000
+    volumes:
+      - lookup:/app/lookup.sqlite
+
 volumes:
   sqlite:
+  lookup:

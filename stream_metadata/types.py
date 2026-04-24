@@ -58,6 +58,10 @@ class PlayoutItem(NamedTuple):
     status: PlayoutItemStatus
     at: datetime.datetime
 
+    @property
+    def id_int(self) -> int:
+        return int(re.sub(r'\D','',self.id) or 0)
+
     @classmethod
     def from_json(cls, data: JsonObject) -> Self:
         """
@@ -102,7 +106,7 @@ class PlayoutPayload(NamedTuple):
 
     @property
     def ids(self) -> Sequence[str]:
-        return tuple(re.sub(r'\D','',i.id) for i in self.items)
+        return tuple(i.id_int for i in self.items)
 
     def mean_at(self) -> float:
         return mean(i.at.timestamp() for i in self.items) if self.items else 0

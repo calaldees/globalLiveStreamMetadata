@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8" />
+	<link id="favicon" rel="shortcut icon" type="image/png" href="data:image/png;base64,....==" />
+</head>
+<body></body>
+<script type="module">
+import mqtt_client from 'https://cdn.jsdelivr.net/npm/u8-mqtt/esm/web/index.js'
+import * as msgpack_lite from 'https://esm.run/msgpack-lite'
+
+
+const my_mqtt = mqtt_client()
+	.with_websock('ws://localhost:9001') // or .with_tcp('tcp://test.mosquitto.org:1883')
+	.with_autoreconnect()
+await my_mqtt.connect()
+
+
+//(pkt, params, ctx) => {
+/**
+		//console.log('topic packet', params, pkt)
+		const data = msgpackmsgpack.decode(pkt.payload)
+		//
+		console.log(data)
+	}
+**/
+async function print_payload(pkt, params, ctx) {
+	const data = msgpack_lite.decode(pkt.payload)
+	console.log(data)
+}
+my_mqtt.subscribe_topic('/stream3/CapitalUK', print_payload)
+</script>
+</html>

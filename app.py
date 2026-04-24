@@ -4,8 +4,10 @@ import pathlib
 
 from stream_metadata.http_api import createApplication, serve_tcp_site
 from stream_metadata.listen_websocket import listen_websocket
-from stream_metadata.publish_stream3_meta import publish_stream3_meta
 from stream_metadata.publish_stream_meta import publish_stream_meta
+from stream_metadata.publish_stream3_meta import publish_stream3_meta
+
+from track_metadata.publish_track_meta import publish_track_meta
 
 from stream_metadata.types import Url, StreamMeta
 
@@ -24,6 +26,7 @@ async def main(options):
             publish_stream_meta(queue_meta, options['mqtt_host']),
             publish_stream3_meta(options['mqtt_host']),
             serve_tcp_site(createApplication(queue_timestamp)),
+            publish_track_meta(options['mqtt_host']),
         )
     except asyncio.CancelledError:
         log.info('Keyboard Interrupt')
