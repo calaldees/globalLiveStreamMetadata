@@ -2,14 +2,14 @@ import asyncio
 import logging
 import operator
 import os
-from collections.abc import MutableMapping
+from collections.abc import MutableMapping, Sequence
 
 import aiohttp
 import aiomqtt
 import msgpack
 
 from stream_metadata.publish_streamPrevious_meta import StreamPlayoutPayloads
-from stream_metadata.types import PlayoutItemStatus
+from stream_metadata.types import PlayoutItem, PlayoutItemStatus
 
 log = logging.getLogger(__name__)
 
@@ -59,13 +59,18 @@ async def publish_track_meta(
                         key=operator.attrgetter("at"),
                         reverse=True,
                     )
-                    playout_items = current_upcoming_playout_items + played_playout_items
+                    playout_items: Sequence[PlayoutItem] = (
+                        current_upcoming_playout_items + played_playout_items
+                    )
 
                     # Fetch track images from cached lookup - falling though to an athena call
                     track_lookup: MutableMapping[int, dict] = {
                         int(track.get("playoutId", 0)): track  # type: ignore
                         for track in await asyncio.gather(
-                            *(_lookup_track(http, playout_item.id_int) for playout_item in playout_items),
+                            *(
+                                _lookup_track(http, playout_item.id_int)
+                                for playout_item in playout_items
+                            ),
                             return_exceptions=True,
                         )
                         if track and not isinstance(track, Exception)
@@ -77,9 +82,11 @@ async def publish_track_meta(
                         for playout_item in playout_items
                     ]
 
+                    # TODO: consider pure json output rather tha msgpack
+                    # (currently msgpack for ease of MQTTx settings)
                     await mqtt_client.publish(
                         f"/track/{meta_name}",
-                        msgpack.packb(playout_items_json_with_track),  # json.dumps(tracks),
+                        msgpack.packb(playout_items_json_with_track),
                         retain=True,
                     )
                     log.info(f"publish: /track/{meta_name}")
