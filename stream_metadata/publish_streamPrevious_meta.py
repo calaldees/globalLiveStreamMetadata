@@ -34,6 +34,10 @@ class StreamPlayoutPayloads:
     def ids(self) -> Set[str]:
         return frozenset(itertools.chain.from_iterable(payload.ids for payload in self.payloads))
 
+    @property
+    def latest(self) -> PlayoutPayload:
+        return self.payloads[0]
+
     def merge_payload(self, payload: PlayoutPayload) -> Self:
         """
         TODO: Really need to doctest this!!!

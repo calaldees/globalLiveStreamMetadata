@@ -1,14 +1,15 @@
-from collections.abc import MutableMapping
-import os
 import asyncio
 import logging
 import operator
+import os
+from collections.abc import MutableMapping
 
 import aiohttp
 import aiomqtt
 import msgpack
 
 from stream_metadata.publish_streamPrevious_meta import StreamPlayoutPayloads
+from stream_metadata.types import PlayoutItemStatus
 
 log = logging.getLogger(__name__)
 
@@ -20,7 +21,9 @@ LOOKUP_CACHE: MutableMapping[int, dict] = {}  # TODO: at some point this need to
 async def _lookup_track(http: aiohttp.ClientSession, playout_id: int) -> dict:
     if playout_id in LOOKUP_CACHE:
         return LOOKUP_CACHE.get(playout_id)
-    LOOKUP_CACHE[playout_id] = _ = await (await http.get(LOOKUP_ENDPOINT + str(playout_id))).json()
+    LOOKUP_CACHE[playout_id] = _ = await (
+        await http.get(LOOKUP_ENDPOINT + str(playout_id))
+    ).json()
     return _
 
 
@@ -59,25 +62,32 @@ async def publish_track_meta(
                         if track and not isinstance(track, Exception)
                     }
 
-                    # Merge sorted playout_item.json dedupled with track_lookup image
-                    playout_items: MutableMapping[int, dict] = {}
-                    for playout_item in sorted(
+                    # Merge ordered playout_item.json with track_lookup image
+                    current_upcoming_playout_items = [
+                        playout_item
+                        for playout_item in incoming_streamPrevious_payloads.latest.items
+                        if playout_item.status == PlayoutItemStatus.C
+                    ]
+                    played_playout_items = sorted(
                         (
                             playout_item
                             for playout_payload in incoming_streamPrevious_payloads.payloads
                             for playout_item in playout_payload.items
+                            if playout_item.status == PlayoutItemStatus.H
                         ),
                         key=operator.attrgetter("at"),
                         reverse=True,
-                    ):
-                        if playout_item.id_int not in playout_items:
-                            playout_items[playout_item.id_int] = (
-                                playout_item.json | track_lookup.get(playout_item.id_int, {})
-                            )
+                    )
+                    playout_items_json_with_track = [
+                        playout_item.json | track_lookup.get(playout_item.id_int, {})
+                        for playout_item in (
+                            current_upcoming_playout_items + played_playout_items
+                        )
+                    ]
 
                     await mqtt_client.publish(
                         f"/track/{meta_name}",
-                        msgpack.packb(tuple(playout_items.values())),  # json.dumps(tracks),
+                        msgpack.packb(playout_items_json_with_track),  # json.dumps(tracks),
                         retain=True,
                     )
                     log.info(f"publish: /track/{meta_name}")
