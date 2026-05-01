@@ -7,7 +7,7 @@ import itertools
 import aiomqtt
 import msgpack
 
-from .types import JsonSequence, PlayoutPayload, Url
+from .types import JsonSequence, PlayoutPayload
 
 log = logging.getLogger(__name__)
 
@@ -15,7 +15,7 @@ log = logging.getLogger(__name__)
 class StreamPlayoutPayloads:
     payloads: Sequence[PlayoutPayload]
 
-    def __init__(self, payloads: Sequence[PlayoutPayload] = (), retain_limit=4):
+    def __init__(self, payloads: Sequence[PlayoutPayload] = (), retain_limit=5):
         self.payloads = payloads
         self.retain_limit = retain_limit
 
@@ -53,59 +53,59 @@ class StreamPlayoutPayloads:
 
 
 
-async def publish_stream3_meta(
+async def publish_streamPrevious_meta(
     mqtt_host: str,  # Url?
     reconnect_interval_seconds: int = 5
 ) -> None:
     client = aiomqtt.Client(mqtt_host)
-    last_stream3: Mapping[str, StreamPlayoutPayloads] = {}
+    last_streamPrevious: Mapping[str, StreamPlayoutPayloads] = {}
     last_stream: Mapping[str, PlayoutPayload] = {}
     while True:  # running?
         try:
             async with client:
-                await client.subscribe("/stream3/#")
+                await client.subscribe("/streamPrevious/#")
                 await client.subscribe("/stream/#")
 
                 async for message in client.messages:
                     log.info(f"recv: {message.topic.value}")
 
                     if message.topic.matches("/stream/#"):
-                        # Combine and push `/stream3/` version with previous payloads
+                        # Combine and push `/streamPrevious/` version with previous payloads
                         if not message.payload:
                             continue
                         meta_name = message.topic.value.removeprefix("/stream/")
                         incoming_stream_payload = PlayoutPayload.from_json(msgpack.unpackb(message.payload))
-                        existing_stream3_payloads = (last_stream3.get(meta_name) or StreamPlayoutPayloads())
-                        merged_stream3_payloads = existing_stream3_payloads.merge_payload(incoming_stream_payload)
+                        existing_streamPrevious_payloads = (last_streamPrevious.get(meta_name) or StreamPlayoutPayloads())
+                        merged_streamPrevious_payloads = existing_streamPrevious_payloads.merge_payload(incoming_stream_payload)
 
                         # Publish
                         last_stream[meta_name] = incoming_stream_payload
-                        last_stream3[meta_name] = merged_stream3_payloads
+                        last_streamPrevious[meta_name] = merged_streamPrevious_payloads
                         await client.publish(
-                            f"/stream3/{meta_name}",
-                            msgpack.packb(merged_stream3_payloads.json),
+                            f"/streamPrevious/{meta_name}",
+                            msgpack.packb(merged_streamPrevious_payloads.json),
                             retain=True,
                         )
-                        log.info(f"publish: /stream/ -> /stream3/{meta_name}")
+                        log.info(f"publish: /stream/ -> /streamPrevious/{meta_name}")
 
-                    elif message.topic.matches("/stream3/#"):
+                    elif message.topic.matches("/streamPrevious/#"):
                         # Fallback for when we connect to an existing/previous session
                         # Most of the time this segment does nothing
-                        # At startup we merge existing stream3 (could be outdated) with our current payload
-                        meta_name = message.topic.value.removeprefix("/stream3/")
-                        incoming_stream3_payloads = StreamPlayoutPayloads.from_json(msgpack.unpackb(message.payload))
+                        # At startup we merge existing streamPrevious (could be outdated) with our current payload
+                        meta_name = message.topic.value.removeprefix("/streamPrevious/")
+                        incoming_streamPrevious_payloads = StreamPlayoutPayloads.from_json(msgpack.unpackb(message.payload))
 
-                        existing_stream3_payloads = (last_stream3.get(meta_name) or StreamPlayoutPayloads())
-                        merged_stream3_payloads = existing_stream3_payloads.merge_payloads(incoming_stream3_payloads)
-                        if existing_stream3_payloads.ids != merged_stream3_payloads.ids:
+                        existing_streamPrevious_payloads = (last_streamPrevious.get(meta_name) or StreamPlayoutPayloads())
+                        merged_streamPrevious_payloads = existing_streamPrevious_payloads.merge_payloads(incoming_streamPrevious_payloads)
+                        if existing_streamPrevious_payloads.ids != merged_streamPrevious_payloads.ids:
                             # Publish
-                            last_stream3[meta_name] = merged_stream3_payloads
+                            last_streamPrevious[meta_name] = merged_streamPrevious_payloads
                             await client.publish(
-                                f"/stream3/{meta_name}",
-                                msgpack.packb(merged_stream3_payloads.json),
+                                f"/streamPrevious/{meta_name}",
+                                msgpack.packb(merged_streamPrevious_payloads.json),
                                 retain=True,
                             )
-                            log.info(f"publish: MERGED /stream3/{meta_name}")
+                            log.info(f"publish: MERGED /streamPrevious/{meta_name}")
 
         except aiomqtt.MqttError:
             log.warning(f"Connection lost to {mqtt_host=}; Reconnecting in {reconnect_interval_seconds=}")

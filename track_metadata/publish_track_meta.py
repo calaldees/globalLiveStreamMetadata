@@ -8,7 +8,7 @@ import aiohttp
 import aiomqtt
 import msgpack
 
-from stream_metadata.publish_stream3_meta import StreamPlayoutPayloads
+from stream_metadata.publish_streamPrevious_meta import StreamPlayoutPayloads
 
 log = logging.getLogger(__name__)
 
@@ -32,24 +32,24 @@ async def publish_track_meta(
     while True:  # running?
         try:
             async with mqtt_client, aiohttp.ClientSession() as http:
-                await mqtt_client.subscribe("/stream3/#")
+                await mqtt_client.subscribe("/streamPrevious/#")
                 async for message in mqtt_client.messages:
                     # log.info(f"recv: {message.topic.value}")
-                    meta_name = message.topic.value.removeprefix("/stream3/")
-                    incoming_stream3_payloads = StreamPlayoutPayloads.from_json(
+                    meta_name = message.topic.value.removeprefix("/streamPrevious/")
+                    incoming_streamPrevious_payloads = StreamPlayoutPayloads.from_json(
                         msgpack.unpackb(message.payload)
                     )
 
                     # Fetch track images from cached lookup - falling though to an athena call
                     track_lookup: MutableMapping[int, dict] = {
-                        int(track.get("playoutId", 0)): track
+                        int(track.get("playoutId", 0)): track  # type: ignore
                         for track in await asyncio.gather(
                             *(
                                 _lookup_track(http, track_id)
                                 for track_id in frozenset(
                                     (
                                         playout_item.id_int
-                                        for playout_payload in incoming_stream3_payloads.payloads
+                                        for playout_payload in incoming_streamPrevious_payloads.payloads
                                         for playout_item in playout_payload.items
                                     )
                                 )
@@ -64,7 +64,7 @@ async def publish_track_meta(
                     for playout_item in sorted(
                         (
                             playout_item
-                            for playout_payload in incoming_stream3_payloads.payloads
+                            for playout_payload in incoming_streamPrevious_payloads.payloads
                             for playout_item in playout_payload.items
                         ),
                         key=operator.attrgetter("at"),
