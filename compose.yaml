@@ -7,7 +7,7 @@ services:
       LOOKUP_ENDPOINT: http://lookup:8000/lookup/
     ports:
       - 8000:8000
-    #volumes:
+      #volumes:
       #  - ${PWD}/app.py:/app/app.py:ro
 
   nanomq:
@@ -27,10 +27,11 @@ services:
       context: /Users/allan.callaghan/code/personal/lookupCacheAPI/
     environment:
       - CACHE_TIMEOUT_MINUTES=9999
+      - CACHE_PATH=/__cache/lookup.sqlite
     ports:
       - 8002:8000
     volumes:
-      - lookup:/app/lookup.sqlite
+      - lookup:/__cache/
 
 volumes:
   sqlite:

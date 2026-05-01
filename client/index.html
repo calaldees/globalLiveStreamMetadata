@@ -35,6 +35,7 @@ function render_tracks_payload(tracks) {
 async function print_payload(pkt, params, ctx) {
 	const data = msgpack_lite.decode(pkt.payload)
 	console.log(data)
+	document.body.innerHTML = ''
 	document.body.appendChild(render_tracks_payload(data))
 }
 my_mqtt.subscribe_topic('/track/CapitalUK', print_payload)

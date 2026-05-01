@@ -2,10 +2,10 @@ import base64
 import datetime
 import enum
 import re
-from collections.abc import Mapping, Sequence
-from typing import NamedTuple, Self
-from statistics import mean
 import urllib.parse
+from collections.abc import Mapping, Sequence
+from statistics import mean
+from typing import NamedTuple, Self, TypedDict
 
 import msgpack
 
@@ -20,18 +20,19 @@ class Url(str):
         self._parts = urllib.parse.urlparse(url)
         if bool(self) and not self._parts.netloc:
             raise ValueError(
-                f'{self.__class__.__name__}: unable to parse {self._parts=}'
+                f"{self.__class__.__name__}: unable to parse {self._parts=}"
             )
+
     def __str__(self) -> str:
         return urllib.parse.urlunparse(self._parts)
+
     def __bool__(self) -> bool:
         return any(self._parts)
 
 
-
 class PlayoutItemStatus(enum.StrEnum):
-    H = 'H'
-    C = 'C'
+    H = "H"
+    C = "C"
 
     @classmethod
     def from_str(cls, s: str) -> Self:
@@ -42,7 +43,7 @@ class PlayoutItemStatus(enum.StrEnum):
 
 
 class PlayoutItemType(enum.StrEnum):
-    T = 'T'
+    T = "T"
 
     @classmethod
     def from_str(cls, s: str) -> Self:
@@ -58,12 +59,16 @@ class PlayoutItem(NamedTuple):
     status: PlayoutItemStatus
     at: datetime.datetime
 
+    PlayoutItemJson = TypedDict(
+        "PlayoutItemJson", {"id": str, "type": str, "status": str, "@": int}
+    )
+
     @property
     def id_int(self) -> int:
-        return int(re.sub(r'\D','',self.id) or 0)
+        return int(re.sub(r"\D", "", self.id) or 0)
 
     @classmethod
-    def from_json(cls, data: JsonObject) -> Self:
+    def from_json(cls, data: PlayoutItemJson) -> Self:
         """
         >>> PlayoutItem.from_json({"status": "H", "@": 1763735018, "type": "T", "id": "912067"})
         PlayoutItem(id='912067', type=<PlayoutItemType.T: 'T'>, status=<PlayoutItemStatus.H: 'H'>, at=datetime.datetime(2025, 11, 21, 14, 23, 38))
@@ -76,7 +81,7 @@ class PlayoutItem(NamedTuple):
         )
 
     @property
-    def json(self) -> JsonObject:
+    def json(self) -> PlayoutItemJson:
         """
         >>> data = {"status": "H", "@": 1763735018, "type": "T", "id": "912067"}
         >>> PlayoutItem.from_json(data).json == data
