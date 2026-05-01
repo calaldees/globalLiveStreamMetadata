@@ -43,26 +43,7 @@ async def publish_track_meta(
                         msgpack.unpackb(message.payload)
                     )
 
-                    # Fetch track images from cached lookup - falling though to an athena call
-                    track_lookup: MutableMapping[int, dict] = {
-                        int(track.get("playoutId", 0)): track  # type: ignore
-                        for track in await asyncio.gather(
-                            *(
-                                _lookup_track(http, track_id)
-                                for track_id in frozenset(
-                                    (
-                                        playout_item.id_int
-                                        for playout_payload in incoming_streamPrevious_payloads.payloads
-                                        for playout_item in playout_payload.items
-                                    )
-                                )
-                            ),
-                            return_exceptions=True,
-                        )
-                        if track and not isinstance(track, Exception)
-                    }
-
-                    # Merge ordered playout_item.json with track_lookup image
+                    # Order playout_items
                     current_upcoming_playout_items = [
                         playout_item
                         for playout_item in incoming_streamPrevious_payloads.latest.items
@@ -78,11 +59,22 @@ async def publish_track_meta(
                         key=operator.attrgetter("at"),
                         reverse=True,
                     )
+                    playout_items = current_upcoming_playout_items + played_playout_items
+
+                    # Fetch track images from cached lookup - falling though to an athena call
+                    track_lookup: MutableMapping[int, dict] = {
+                        int(track.get("playoutId", 0)): track  # type: ignore
+                        for track in await asyncio.gather(
+                            *(_lookup_track(http, playout_item.id_int) for playout_item in playout_items),
+                            return_exceptions=True,
+                        )
+                        if track and not isinstance(track, Exception)
+                    }
+
+                    # Merge playout_item.json with track images
                     playout_items_json_with_track = [
                         playout_item.json | track_lookup.get(playout_item.id_int, {})
-                        for playout_item in (
-                            current_upcoming_playout_items + played_playout_items
-                        )
+                        for playout_item in playout_items
                     ]
 
                     await mqtt_client.publish(
