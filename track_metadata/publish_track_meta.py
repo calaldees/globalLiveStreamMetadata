@@ -79,3 +79,6 @@ async def publish_track_meta(
         except (asyncio.QueueShutDown, asyncio.CancelledError):
             log.warning("TODO")
             break
+        except Exception as ex:
+            log.exception(f'unknown error; Reconnecting in {reconnect_interval_seconds=}')
+            await asyncio.sleep(reconnect_interval_seconds)
