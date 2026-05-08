@@ -3,6 +3,10 @@
 <head>
 	<meta charset="utf-8" />
 	<link id="favicon" rel="shortcut icon" type="image/png" href="data:image/png;base64,....==" />
+	<style>
+		li {display: inline;}
+		ul {white-space: nowrap;}
+	</style>
 </head>
 <body></body>
 <script type="module">
@@ -27,17 +31,23 @@ const my_mqtt = mqtt_client()
 await my_mqtt.connect()
 
 function render_tracks_payload(tracks) {
-	return h('ul',{},tracks.map(track=>h('li',{},[
-		h('img',{src:track.artwork.url, alt:track.title},[]),
-	])))
+	return tracks.map(track=>h('li',{},[
+		h('img',{src:track.artwork?.url || '', alt:track.title, loading: "lazy"},[]),
+	]))
 }
 
 async function print_payload(pkt, params, ctx) {
 	const data = msgpack_lite.decode(pkt.payload)
-	console.log(data)
-	document.body.innerHTML = ''
-	document.body.appendChild(render_tracks_payload(data))
+	//console.log(data, pkt)
+	let $target = document.getElementById(pkt.topic)
+	if (!$target) {
+		//console.log('new_element', pkt.topic)
+		$target = h('ul',{id: pkt.topic})
+		document.body.appendChild($target)
+	}
+	$target.innerHTML = ''
+	$target.append(...render_tracks_payload(data))
 }
-my_mqtt.subscribe_topic('/track/CapitalUK', print_payload)
+my_mqtt.subscribe_topic('/track/#', print_payload)
 </script>
 </html>

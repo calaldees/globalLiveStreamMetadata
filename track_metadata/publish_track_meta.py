@@ -3,6 +3,7 @@ import logging
 import operator
 import os
 from collections.abc import MutableMapping, Sequence
+import datetime
 
 import aiohttp
 import aiomqtt
@@ -43,25 +44,7 @@ async def publish_track_meta(
                         msgpack.unpackb(message.payload)
                     )
 
-                    # Order playout_items
-                    current_upcoming_playout_items = [
-                        playout_item
-                        for playout_item in incoming_streamPrevious_payloads.latest.items
-                        if playout_item.status == PlayoutItemStatus.C
-                    ]
-                    played_playout_items = sorted(
-                        (
-                            playout_item
-                            for playout_payload in incoming_streamPrevious_payloads.payloads
-                            for playout_item in playout_payload.items
-                            if playout_item.status == PlayoutItemStatus.H
-                        ),
-                        key=operator.attrgetter("at"),
-                        reverse=True,
-                    )
-                    playout_items: Sequence[PlayoutItem] = (
-                        current_upcoming_playout_items + played_playout_items
-                    )
+                    playout_items = incoming_streamPrevious_payloads.items
 
                     # Fetch track images from cached lookup - falling though to an athena call
                     track_lookup: MutableMapping[int, dict] = {
@@ -77,10 +60,10 @@ async def publish_track_meta(
                     }
 
                     # Merge playout_item.json with track images
-                    playout_items_json_with_track = [
+                    playout_items_json_with_track = tuple(
                         playout_item.json | track_lookup.get(playout_item.id_int, {})
                         for playout_item in playout_items
-                    ]
+                    )
 
                     # TODO: consider pure json output rather tha msgpack
                     # (currently msgpack for ease of MQTTx settings)
