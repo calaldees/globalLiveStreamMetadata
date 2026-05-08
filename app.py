@@ -1,15 +1,14 @@
 import asyncio
 import logging
 import pathlib
+from os import environ
 
 from stream_metadata.http_api import createApplication, serve_tcp_site
 from stream_metadata.listen_websocket import listen_websocket
 from stream_metadata.publish_stream_meta import publish_stream_meta
 from stream_metadata.publish_streamPrevious_meta import publish_streamPrevious_meta
-
+from stream_metadata.types import StreamMeta, Url
 from track_metadata.publish_track_meta import publish_track_meta
-
-from stream_metadata.types import Url, StreamMeta
 
 log = logging.getLogger(__name__)
 
@@ -44,7 +43,7 @@ def get_args(argv=None) -> dict:
         description=readme.read_text() if readme.exists() else '',
     )
     parser.add_argument('--websocket_url', action='store', help='', type=Url, default=Url('ws://10.7.116.20/metadata/'))
-    parser.add_argument('--mqtt_host', action='store', help='', default='localhost')  # TODO is this a Url?
+    parser.add_argument('--mqtt_host', action='store', help='ues ENV MQTT_HOST', default=environ.get('MQTT_HOST', 'localhost'))  # TODO is this a Url?
     parser.add_argument('--log_level', action='store', type=int, help='loglevel of output to stdout', default=logging.DEBUG)
     args = parser.parse_args(argv)
     return vars(args)

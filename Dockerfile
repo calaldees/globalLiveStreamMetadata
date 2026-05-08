@@ -7,6 +7,8 @@ WORKDIR /app/
 COPY pyproject.toml .
 RUN UV_NO_SYNC=False uv sync --no-dev
 
-COPY app.py stream_metadata/ ./
+COPY app.py README.md ./
+COPY stream_metadata stream_metadata
+COPY track_metadata track_metadata
 ENTRYPOINT [ "uv", "run", "app.py" ]
 EXPOSE 8000

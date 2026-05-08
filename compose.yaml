@@ -5,10 +5,14 @@ services:
       context: .
     environment:
       LOOKUP_ENDPOINT: http://lookup:8000/lookup/
+      MQTT_HOST: nanomq
     ports:
       - 8000:8000
       #volumes:
       #  - ${PWD}/app.py:/app/app.py:ro
+    depends_on:
+      - nanomq
+      - lookup
 
   nanomq:
     image: emqx/nanomq:latest-slim
@@ -32,6 +36,15 @@ services:
       - 8002:8000
     volumes:
       - lookup:/__cache/
+
+  frontend:
+    image: python:alpine
+    volumes:
+      - ./client/:/app/:ro
+    working_dir: /app/
+    ports:
+      - 8001:8000
+    command: ["python3", "-m", "http.server"]
 
 volumes:
   sqlite:

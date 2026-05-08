@@ -1,16 +1,13 @@
 import asyncio
 import logging
-import operator
 import os
-from collections.abc import MutableMapping, Sequence
-import datetime
+from collections.abc import MutableMapping
 
 import aiohttp
 import aiomqtt
 import msgpack
 
 from stream_metadata.publish_streamPrevious_meta import StreamPlayoutPayloads
-from stream_metadata.types import PlayoutItem, PlayoutItemStatus
 
 log = logging.getLogger(__name__)
 

@@ -26,7 +26,7 @@ function h(type, params, children) {
 
 
 const my_mqtt = mqtt_client()
-	.with_websock('ws://localhost:9001') // or .with_tcp('tcp://test.mosquitto.org:1883')
+	.with_websock('ws://localhost:9001')  // or .with_tcp('tcp://test.mosquitto.org:1883')
 	.with_autoreconnect()
 await my_mqtt.connect()
 
@@ -39,12 +39,7 @@ function render_tracks_payload(tracks) {
 async function print_payload(pkt, params, ctx) {
 	const data = msgpack_lite.decode(pkt.payload)
 	//console.log(data, pkt)
-	let $target = document.getElementById(pkt.topic)
-	if (!$target) {
-		//console.log('new_element', pkt.topic)
-		$target = h('ul',{id: pkt.topic})
-		document.body.appendChild($target)
-	}
+	const $target = document.getElementById(pkt.topic) || document.body.appendChild(h('ul',{id: pkt.topic}))
 	$target.innerHTML = ''
 	$target.append(...render_tracks_payload(data))
 }
