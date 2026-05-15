@@ -1,5 +1,5 @@
 up:
-	docker compose up
+	docker compose up --build
 run:
 	# docker compose up -d nanomq
 	uv run app.py

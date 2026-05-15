@@ -6,6 +6,8 @@
 	<style>
 		li {display: inline;}
 		ul {white-space: nowrap;}
+		.upcoming {border: 1px solid yellow;}
+		.played {border: 1px solid green;}
 	</style>
 </head>
 <body></body>
@@ -30,18 +32,26 @@ const my_mqtt = mqtt_client()
 	.with_autoreconnect()
 await my_mqtt.connect()
 
-function render_tracks_payload(tracks) {
-	return tracks.map(track=>h('li',{},[
-		h('img',{src:track.artwork?.url || '', alt:track.title, loading: "lazy"},[]),
-	]))
+function render_playout_items(topic, payload) {
+	return [
+		h('li',{},`${topic.replace('/track/','')} ${payload.isPlayingTrack?'playingTrack':'presenter'}`),
+		payload.playout_items.map(track=>h('li',{},[
+			h('img',{
+				src:track.artwork?.url || '',
+				alt:track.title,
+				loading: "lazy",
+				'class': track.status=='C' ? 'upcoming':'played'
+			},[]),
+		])),
+	].flat()
 }
 
 async function print_payload(pkt, params, ctx) {
 	const data = msgpack_lite.decode(pkt.payload)
-	//console.log(data, pkt)
+	if (pkt.topic.endsWith('MP3') || pkt.topic.endsWith('HD')) {return}
 	const $target = document.getElementById(pkt.topic) || document.body.appendChild(h('ul',{id: pkt.topic}))
 	$target.innerHTML = ''
-	$target.append(...render_tracks_payload(data))
+	$target.append(...render_playout_items(pkt.topic, data))
 }
 my_mqtt.subscribe_topic('/track/#', print_payload)
 </script>

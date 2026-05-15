@@ -110,7 +110,7 @@ class PlayoutPayload(NamedTuple):
         return cls(items=tuple(map(PlayoutItem.from_json, data)))
 
     @property
-    def ids(self) -> Sequence[str]:
+    def ids(self) -> Sequence[int]:
         return tuple(i.id_int for i in self.items)
 
     def mean_at(self) -> float:
@@ -119,6 +119,13 @@ class PlayoutPayload(NamedTuple):
     @property
     def json(self) -> JsonSequence:
         return tuple(i.json for i in self.items)
+
+    @property
+    def isPlayingTrack(self) -> bool:
+        return any(
+            playout_item.status == PlayoutItemStatus.H
+            for playout_item in self.items
+        )
 
 
 class StreamMeta(NamedTuple):

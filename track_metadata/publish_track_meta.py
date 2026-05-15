@@ -56,17 +56,20 @@ async def publish_track_meta(
                         if track and not isinstance(track, Exception)
                     }
 
-                    # Merge playout_item.json with track images
-                    playout_items_json_with_track = tuple(
-                        playout_item.json | track_lookup.get(playout_item.id_int, {})
-                        for playout_item in playout_items
-                    )
+                    payload = {
+                        'isPlayingTrack': incoming_streamPrevious_payloads.latest.isPlayingTrack,
+                        # Merge playout_item.json with track images
+                        'playout_items': tuple(
+                            playout_item.json | track_lookup.get(playout_item.id_int, {})
+                            for playout_item in playout_items
+                        )
+                    }
 
                     # TODO: consider pure json output rather tha msgpack
                     # (currently msgpack for ease of MQTTx settings)
                     await mqtt_client.publish(
                         f"/track/{meta_name}",
-                        msgpack.packb(playout_items_json_with_track),
+                        msgpack.packb(payload),
                         retain=True,
                     )
                     log.info(f"publish: /track/{meta_name}")
