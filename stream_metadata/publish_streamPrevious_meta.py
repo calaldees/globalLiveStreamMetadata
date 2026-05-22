@@ -5,7 +5,7 @@ from collections.abc import Mapping
 import aiomqtt
 import msgpack
 
-from .types import PlayoutPayload, StreamPlayoutPayloads
+from .models import PlayoutPayload, StreamPlayoutPayloads
 
 log = logging.getLogger(__name__)
 

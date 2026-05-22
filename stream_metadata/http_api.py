@@ -6,7 +6,7 @@ from collections.abc import Mapping
 import aiohttp
 from aiohttp import web as aiohttp_web
 
-from .types import StreamMeta
+from .models import StreamMeta
 
 README = pathlib.Path('README.md').read_text()
 

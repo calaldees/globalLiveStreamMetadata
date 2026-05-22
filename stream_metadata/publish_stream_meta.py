@@ -3,7 +3,7 @@ import logging
 
 import aiomqtt
 
-from .types import StreamMeta, Url
+from .models import StreamMeta
 
 log = logging.getLogger(__name__)
 

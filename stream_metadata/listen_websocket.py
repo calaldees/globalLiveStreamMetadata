@@ -6,7 +6,7 @@ from collections.abc import Mapping
 import aiohttp
 import humanize
 
-from .types import StreamMeta, Url
+from .models import StreamMeta, Url
 
 log = logging.getLogger(__name__)
 

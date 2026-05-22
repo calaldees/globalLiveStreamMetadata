@@ -7,7 +7,7 @@ from stream_metadata.http_api import createApplication, serve_tcp_site
 from stream_metadata.listen_websocket import listen_websocket
 from stream_metadata.publish_stream_meta import publish_stream_meta
 from stream_metadata.publish_streamPrevious_meta import publish_streamPrevious_meta
-from stream_metadata.types import StreamMeta, Url
+from stream_metadata.models import StreamMeta, Url
 from track_metadata.publish_track_meta import publish_track_meta
 
 log = logging.getLogger(__name__)

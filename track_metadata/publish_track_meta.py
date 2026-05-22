@@ -8,7 +8,7 @@ import aiohttp
 import aiomqtt
 import msgpack
 
-from stream_metadata.types import StreamPlayoutPayloads
+from stream_metadata.models import StreamPlayoutPayloads
 
 log = logging.getLogger(__name__)
 
