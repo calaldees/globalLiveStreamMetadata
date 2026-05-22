@@ -7,7 +7,7 @@
 		li {display: inline;}
 		ul {white-space: nowrap;}
 		.upcoming {border: 1px solid yellow;}
-		.played {border: 1px solid green;}
+		.played {border: 1px solid black;}
 	</style>
 </head>
 <body></body>
@@ -48,7 +48,6 @@ function render_playout_items(topic, payload) {
 
 async function print_payload(pkt, params, ctx) {
 	const data = msgpack_lite.decode(pkt.payload)
-	if (pkt.topic.endsWith('MP3') || pkt.topic.endsWith('HD')) {return}
 	const $target = document.getElementById(pkt.topic) || document.body.appendChild(h('ul',{id: pkt.topic}))
 	$target.innerHTML = ''
 	$target.append(...render_playout_items(pkt.topic, data))

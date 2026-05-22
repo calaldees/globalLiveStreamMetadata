@@ -127,6 +127,10 @@ class PlayoutPayload(NamedTuple):
             for playout_item in self.items
         )
 
+    @property
+    def latest_timestamp(self) -> datetime.datetime:
+        return max(i.at for i in self.items) if self.items else datetime.datetime.fromtimestamp(0)
+
 
 class StreamMeta(NamedTuple):
     """

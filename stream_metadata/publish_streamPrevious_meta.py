@@ -4,6 +4,7 @@ from collections.abc import Mapping, Sequence, Set, MutableMapping
 from typing import Self
 import itertools
 import operator
+import datetime
 
 import aiomqtt
 import msgpack
@@ -16,9 +17,13 @@ log = logging.getLogger(__name__)
 class StreamPlayoutPayloads:
     payloads: Sequence[PlayoutPayload]
 
-    def __init__(self, payloads: Sequence[PlayoutPayload] = (), retain_limit=5):
+    def __init__(
+        self,
+        payloads: Sequence[PlayoutPayload] = (),
+        retain_period: datetime.timedelta = datetime.timedelta(minutes=30),
+    ):
         self.payloads = payloads
-        self.retain_limit = retain_limit
+        self.retain_period = retain_period
 
     def __str__(self) -> str:
         return f'{self.__class__.__name__}: [{" ".join(",".join(p.ids) for p in self.payloads)}]'
@@ -54,20 +59,33 @@ class StreamPlayoutPayloads:
                     playout_items[playout_item.id_int] = playout_item
         return sorted(playout_items.values(), key=operator.attrgetter("at"))
 
-    def merge_payload(self, payload: PlayoutPayload) -> Self:
+    def merge_payload(self, new_payload: PlayoutPayload) -> Self:
         """
         TODO: Really need to doctest this!!!
         """
         payloads = tuple(
             filter(
-                lambda p: p.ids != payload.ids or p.mean_at() > payload.mean_at(),
+                # (True == Keep) Keep existing payloads that:
+                #  - DONT contain the same tracks as the new_payload OR are newer than the new_payload
+                lambda p: p.ids != new_payload.ids
+                or p.mean_at() > new_payload.mean_at(),
                 self.payloads,
             )
         )
-        payloads += (payload,)
-        payloads = sorted(payloads, key=PlayoutPayload.mean_at)
-        payloads = payloads[-self.retain_limit :]
-        return self.__class__(payloads)
+        payloads += (new_payload,)
+        discard_threshold_timestamp = (
+            max(payload.latest_timestamp for payload in payloads)
+            - self.retain_period
+        )
+        return self.__class__(
+            tuple(
+                filter(
+                    lambda payload: payload.latest_timestamp
+                    > discard_threshold_timestamp,
+                    sorted(payloads, key=PlayoutPayload.mean_at),
+                )
+            )
+        )
 
     def merge_payloads(self, b: Self) -> Self:
         # TODO: inefficient mess ... do better
@@ -97,7 +115,13 @@ async def publish_streamPrevious_meta(
                         # Combine and push `/streamPrevious/` version with previous payloads
                         if not message.payload:
                             continue
-                        meta_name = message.topic.value.removeprefix("/stream/")
+                        meta_name: str = message.topic.value.removeprefix("/stream/")
+
+                        # Optimisation: Don't process HD or MP3 streams as these are duplicates of the core stream
+                        for exclude_channel_suffix in ("HD", "MP3"):
+                            if meta_name.endswith(exclude_channel_suffix):
+                                continue
+
                         incoming_stream_payload = PlayoutPayload.from_json(
                             msgpack.unpackb(message.payload)
                         )
