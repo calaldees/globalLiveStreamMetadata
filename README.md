@@ -30,16 +30,22 @@ websocat ws://10.7.116.20/metadata/ -H 'Origin: http://10.7.116.20' | jq
 * The resulting websocket metadata for every stream is about 300Kbps
 
 
-Method
-------
+Concept
+-------
 
 * MQTT Message Broker
     * Last message `retain`+replay
-    * sqllite for `retain`ed messages
-    * 100,000 concurrent connections + established fanout patterns
-    * Native established client libraries
-        * connecting, subscribing and resilient-auto-reconnecting
+    * [nanomq](https://nanomq.io/)
+        * sqllite for `retain`ed messages
+        * See [benchmarks](./nanomq/nanomq.md)
+            * > 5 publishers, 5 topics, 1000 subscribers (each sub to all topics)
+              > Publish rate: 250/s, so sub rate = 250*1000 = 250k/s
+              > QoS 1, payload 16B
+              > Average pub-to-sub latency (ms) 13.91
+              > NanoMQ can stably handle message throughput of up to 500k on this c5.4xlarge virtual machine.
+    * Native established MQTT client libraries
         * For all platforms and languages
+        * connecting, subscribing and resilient-auto-reconnecting
 * Da big players use queues in there infra
     * lambdas that operate on message-queues (pub/sub)
         * Each unit has defined input/output and is testable
