@@ -74,8 +74,7 @@ class StreamPlayoutPayloads:
         )
         payloads += (new_payload,)
         discard_threshold_timestamp = (
-            max(payload.latest_timestamp for payload in payloads)
-            - self.retain_period
+            max(payload.latest_timestamp for payload in payloads) - self.retain_period
         )
         return self.__class__(
             tuple(
@@ -109,18 +108,20 @@ async def publish_streamPrevious_meta(
                 await client.subscribe("/stream/#")
 
                 async for message in client.messages:
+                    if not message.payload:
+                        continue
+                    # Optimisation: Don't process HD or MP3 streams as these are duplicates of the core stream
+                    if any(
+                        message.topic.value.endswith(exclude_channel_suffix)
+                        for exclude_channel_suffix in ("HD", "MP3")
+                    ):
+                        continue
+
                     log.info(f"recv: {message.topic.value}")
 
                     if message.topic.matches("/stream/#"):
                         # Combine and push `/streamPrevious/` version with previous payloads
-                        if not message.payload:
-                            continue
                         meta_name: str = message.topic.value.removeprefix("/stream/")
-
-                        # Optimisation: Don't process HD or MP3 streams as these are duplicates of the core stream
-                        for exclude_channel_suffix in ("HD", "MP3"):
-                            if meta_name.endswith(exclude_channel_suffix):
-                                continue
 
                         incoming_stream_payload = PlayoutPayload.from_json(
                             msgpack.unpackb(message.payload)
