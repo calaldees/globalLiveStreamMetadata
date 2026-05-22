@@ -1,9 +1,11 @@
 import base64
 import datetime
 import enum
+import itertools
+import operator
 import re
 import urllib.parse
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping, MutableMapping, Sequence, Set
 from statistics import mean
 from typing import NamedTuple, Self, TypedDict
 
@@ -179,3 +181,83 @@ class StreamMeta(NamedTuple):
     @property
     def playout_payload(self) -> PlayoutPayload:
         return PlayoutPayload.from_json(self.playout_payload_json)
+
+
+class StreamPlayoutPayloads:
+    payloads: Sequence[PlayoutPayload]
+
+    def __init__(
+        self,
+        payloads: Sequence[PlayoutPayload] = (),
+        retain_period: datetime.timedelta = datetime.timedelta(minutes=30),
+    ):
+        self.payloads = payloads
+        self.retain_period = retain_period
+
+    def __str__(self) -> str:
+        return f'{self.__class__.__name__}: [{" ".join(",".join(p.ids) for p in self.payloads)}]'
+
+    @property
+    def json(self) -> JsonSequence:
+        return tuple(payload.json for payload in self.payloads)
+
+    @classmethod
+    def from_json(cls, data: JsonSequence) -> Self:
+        return cls(tuple(map(PlayoutPayload.from_json, data)))
+
+    @property
+    def ids(self) -> Set[str]:
+        return frozenset(
+            itertools.chain.from_iterable(payload.ids for payload in self.payloads)
+        )
+
+    @property
+    def latest(self) -> PlayoutPayload:
+        return self.payloads[-1]
+
+    @property
+    def items(self) -> Sequence[PlayoutItem]:
+        playout_items: MutableMapping[int, PlayoutItem] = {}
+        for playout_payload in self.payloads:
+            for playout_item in playout_payload.items:
+                existing_playout_item = playout_items.get(playout_item.id_int)
+                if playout_item.status == PlayoutItemStatus.H or (
+                    not existing_playout_item
+                    or existing_playout_item.at > playout_item.at
+                ):
+                    playout_items[playout_item.id_int] = playout_item
+        return sorted(playout_items.values(), key=operator.attrgetter("at"))
+
+    def merge_payload(self, new_payload: PlayoutPayload) -> Self:
+        """
+        TODO: Really need to doctest this!!!
+        """
+        payloads = tuple(
+            filter(
+                # (True == Keep) Keep existing payloads that:
+                #  - DONT contain the same tracks as the new_payload OR are newer than the new_payload
+                lambda p: p.ids != new_payload.ids
+                or p.mean_at() > new_payload.mean_at(),
+                self.payloads,
+            )
+        )
+        payloads += (new_payload,)
+        discard_threshold_timestamp = (
+            max(payload.latest_timestamp for payload in payloads) - self.retain_period
+        )
+        return self.__class__(
+            tuple(
+                filter(
+                    lambda payload: payload.latest_timestamp
+                    > discard_threshold_timestamp,
+                    sorted(payloads, key=PlayoutPayload.mean_at),
+                )
+            )
+        )
+
+    def merge_payloads(self, b: Self) -> Self:
+        # TODO: inefficient mess ... do better
+        _return = self.__class__(self.payloads)
+        for p in b.payloads:
+            _return = _return.merge_payload(p)
+        return _return

@@ -13,6 +13,7 @@ services:
     depends_on:
       - nanomq
       - lookup
+    stop_signal:  SIGINT
 
   nanomq:
     image: emqx/nanomq:latest-slim
@@ -45,6 +46,7 @@ services:
     ports:
       - 8001:8000
     command: ["python3", "-m", "http.server"]
+    stop_signal:  SIGINT
 
 volumes:
   nanomq_sqlite:
