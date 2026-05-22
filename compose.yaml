@@ -20,7 +20,7 @@ services:
       - 1883:1883
       - 9001:9001
     volumes:
-      - sqlite:/var/lib/nanomq/sqlite
+      - nanomq_sqlite:/var/lib/nanomq/sqlite
       - ${PWD}/nanomq/nanomq.conf:/usr/local/nanomq/nanomq.conf:ro
       #- ${PWD}/nanomq.conf:/etc/nanomq.conf:ro
       #- ${PWD}/nanomq_acl.conf:/etc/nanomq_acl.conf:ro
@@ -47,5 +47,5 @@ services:
     command: ["python3", "-m", "http.server"]
 
 volumes:
-  sqlite:
+  nanomq_sqlite:
   lookup:

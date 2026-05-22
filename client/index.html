@@ -27,9 +27,9 @@ function h(type, params, children) {
 }
 
 
-const my_mqtt = mqtt_client()
+const my_mqtt = mqtt_client({on_live})
 	.with_websock('ws://localhost:9001')  // or .with_tcp('tcp://test.mosquitto.org:1883')
-	.with_autoreconnect()
+	.with_autoreconnect(1000 * 5)
 await my_mqtt.connect()
 
 function render_playout_items(topic, payload) {
@@ -46,12 +46,17 @@ function render_playout_items(topic, payload) {
 	].flat()
 }
 
-async function print_payload(pkt, params, ctx) {
+async function mqtt_track_message(pkt, params, ctx) {
 	const data = msgpack_lite.decode(pkt.payload)
 	const $target = document.getElementById(pkt.topic) || document.body.appendChild(h('ul',{id: pkt.topic}))
+	$target.dataset.message_count = ($target.dataset.message_count | 0) + 1
 	$target.innerHTML = ''
 	$target.append(...render_playout_items(pkt.topic, data))
 }
-my_mqtt.subscribe_topic('/track/#', print_payload)
+
+async function on_live(my_mqtt, is_reconnect) {
+	console.log('on_live - subscribe to /tracks/#')
+	my_mqtt.subscribe_topic('/track/#', mqtt_track_message)
+}
 </script>
 </html>

@@ -1,7 +1,8 @@
 import asyncio
 import logging
 import os
-from collections.abc import MutableMapping
+from collections.abc import MutableMapping, Hashable
+from collections import defaultdict
 
 import aiohttp
 import aiomqtt
@@ -16,13 +17,15 @@ LOOKUP_ENDPOINT = os.environ.get("LOOKUP_ENDPOINT", "http://localhost:8002/looku
 LOOKUP_CACHE: MutableMapping[int, dict] = {}  # TODO: at some point this need to expire
 
 
+lookup_async_locks: defaultdict[Hashable, asyncio.Lock] = defaultdict(asyncio.Lock)
 async def _lookup_track(http: aiohttp.ClientSession, playout_id: int) -> dict:
-    if playout_id in LOOKUP_CACHE:
-        return LOOKUP_CACHE.get(playout_id)
-    LOOKUP_CACHE[playout_id] = _ = await (
-        await http.get(LOOKUP_ENDPOINT + str(playout_id))
-    ).json()
-    return _
+    async with lookup_async_locks[playout_id]:
+        if playout_id in LOOKUP_CACHE:
+            return LOOKUP_CACHE.get(playout_id)
+        LOOKUP_CACHE[playout_id] = _ = await (
+            await http.get(LOOKUP_ENDPOINT + str(playout_id))
+        ).json()
+        return _
 
 
 async def publish_track_meta(
