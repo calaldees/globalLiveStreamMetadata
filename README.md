@@ -3,10 +3,40 @@ Global Live Stream Metadata
 
 A modular resilient MQTT based Hermes replacement
 
+Metadata Payloads in Steams
+---------------------------
+
+```bash
+# HLS
+mpv https://hls.thisisdax.com/hls/RadioXClassicRock/master.m3u8 \
+| rg --line-buffered "track_info='(?P<base64track>.+?)'" -or '$base64track' \
+| stdbuf -oL -eL uniq \
+| while read -r line; do echo "$line" \
+  | base64 --decode | msgpack2json | jq
+done
+
+# Icecast
+mpv https://media-ice.musicradio.com/RadioXClassicRock --msg-level=ffmpeg=trace \
+| rg --line-buffered "track_info: (?P<base64track>.+)" -or '$base64track' \
+| stdbuf -oL -eL uniq \
+| while read -r line; do echo "$line" \
+  | base64 --decode | msgpack2json | jq
+done
+```
+```jsonc
+// Example
+[
+  {"status": "H", "@": 1780658346, "type": "T", "id": "510692"}, // Current Track
+  {"status": "C", "@": 1780658575, "type": "T", "id": "231767"}, // Upcoming track 1
+  {"status": "C", "@": 1780658804, "type": "T", "id": "232295"}  // Upcoming track 2
+]
+```
+
 Problems with Hermes
 --------------------
 
-* Ingests xxMb of binary streams to hoik out the xKb metadata payloads
+* Connects to all the streams
+    * Ingests xxMb of binary streams to hoik out the xKb metadata payloads
 * Resilience
     * If Hermes crashes, restarts or is deployed, we loose all the previous track history for all streams
     * It takes 30min? to recover the data (from a user perspective)
