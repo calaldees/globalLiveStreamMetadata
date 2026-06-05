@@ -79,7 +79,7 @@ graph TD
 
         subgraph python
             publish_track_meta
-            listen_websocket --> publish_stream_meta
+            listen_websocket --asyncio.Queue--> publish_stream_meta
             publish_stream_meta --> /stream/xxx
             /stream/xxx --> publish_streamPrevious_meta
             publish_streamPrevious_meta --> /streamPrevious/xxx
@@ -101,3 +101,9 @@ publish_stream_meta --> /timestamps
 
 monitor --8000--> /timestamps
 ```
+
+Production Use Ideas?
+---------------------
+
+* Events are 20 seconds ahead of playing a station on `globalplayer.com`
+    * Perhaps a new strategy - client gets events early - take timestamp from the currently playing stream -> clients identify the active track from the timestamp.

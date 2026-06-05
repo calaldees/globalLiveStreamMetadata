@@ -26,12 +26,6 @@ function h(type, params, children) {
     return el
 }
 
-
-const my_mqtt = mqtt_client({on_live})
-	.with_websock('ws://localhost:9001')  // or .with_tcp('tcp://test.mosquitto.org:1883')
-	.with_autoreconnect(1000 * 5)
-await my_mqtt.connect()
-
 function render_playout_items(topic, payload) {
 	return [
 		h('li',{},`${topic.replace('/track/','')} ${payload.isPlayingTrack?'playingTrack':'presenter'}`),
@@ -54,9 +48,30 @@ async function mqtt_track_message(pkt, params, ctx) {
 	$target.append(...render_playout_items(pkt.topic, data))
 }
 
-async function on_live(my_mqtt, is_reconnect) {
+async function on_live(client, is_reconnect) {
 	console.log('on_live - subscribe to /tracks/#')
-	my_mqtt.subscribe_topic('/track/#', mqtt_track_message)
+	if (is_reconnect) {await client.connect()}
+	client.subscribe_topic('/track/#', mqtt_track_message)
 }
+
+const my_mqtt = mqtt_client({on_live})
+	.with_websock('ws://localhost:9001')  // or .with_tcp('tcp://test.mosquitto.org:1883')
+	.with_autoreconnect({
+		delay: 2000,
+		/*
+		reconnect: async function(client){
+			console.log('reconnect', client)
+			//client.is
+			//await client.reconnect()
+			client.on_reconnect()
+			//debugger
+		},
+		error: async function(){
+			console.log('error', arguments)
+		}
+		*/
+	})
+await my_mqtt.connect()
+
 </script>
 </html>
