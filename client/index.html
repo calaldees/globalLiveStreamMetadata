@@ -55,7 +55,7 @@ async function on_live(client, is_reconnect) {
 }
 
 const my_mqtt = mqtt_client({on_live})
-	.with_websock('ws://localhost:9001')  // or .with_tcp('tcp://test.mosquitto.org:1883')
+	.with_websock(`${window.location.protocol.startsWith("https")?"wss":"ws"}://${window.location.hostname}:9001`)  // or .with_tcp('tcp://test.mosquitto.org:1883')
 	.with_autoreconnect({
 		delay: 2000,
 		/*
